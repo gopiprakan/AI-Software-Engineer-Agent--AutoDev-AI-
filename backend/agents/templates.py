@@ -2,7 +2,6 @@ import re
 from typing import Dict, Any
 
 def clean_name(prompt: str) -> str:
-    # Extract a nice capitalized title
     words = re.findall(r'\w+', prompt)
     if not words:
         return "Custom Project"
@@ -11,22 +10,30 @@ def clean_name(prompt: str) -> str:
 def slugify(name: str) -> str:
     return re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_')
 
+def replace_placeholders(text: str, title: str, slug: str, entity: str, entity_cap: str, entity_plural: str, entity_plural_cap: str) -> str:
+    return (text
+            .replace("{title}", title)
+            .replace("{slug}", slug)
+            .replace("{entity}", entity)
+            .replace("{entity_cap}", entity_cap)
+            .replace("{entity_plural}", entity_plural)
+            .replace("{entity_plural_cap}", entity_plural_cap))
+
 def get_dynamic_project(prompt: str) -> Dict[str, Any]:
     title = clean_name(prompt)
     slug = slugify(title)
-    entity = slug.replace("_management_system", "").replace("_system", "").replace("_management", "").replace("_app", "")
+    
+    # Strip keywords to get a base entity name
+    entity = slug.replace("_management_system", "").replace("_system", "").replace("_management", "").replace("_app", "").replace("_platform", "")
+    if not entity:
+        entity = "item"
+        
     entity_cap = entity.capitalize()
     entity_plural = entity + "s"
     entity_plural_cap = entity_plural.capitalize()
 
-    # Dynamic project templates
-    hms = {
-        "title": title,
-        "entity": entity,
-        "entity_cap": entity_cap,
-        "entity_plural": entity_plural,
-        "entity_plural_cap": entity_plural_cap,
-        "requirements": f"""# Requirements: {title}
+    # Define base templates as standard multi-line strings
+    raw_requirements = """# Requirements: {title}
 
 ## 1. Project Objectives
 - Build a robust, scalable {title} to automate core operations.
@@ -43,8 +50,9 @@ def get_dynamic_project(prompt: str) -> Dict[str, Any]:
 - **Dashboard Stats**: Grid showing total records, pending tasks, active sessions, and alerts.
 - **CRUD Operations**: Complete creation, reading, updating, and logical deletion of {entity_plural_cap}.
 - **Activity Log**: Auditing who updated what information and when.
-""",
-        "plan": f"""# Project Plan & Architecture - {title}
+"""
+
+    raw_plan = """# Project Plan & Architecture - {title}
 
 ## 1. Folder Structure
 ```text
@@ -82,12 +90,13 @@ def get_dynamic_project(prompt: str) -> Dict[str, Any]:
 | POST | `/api/auth/register` | Register a new user | No |
 | POST | `/api/auth/token` | Obtain OAuth2 token | No |
 | GET | `/api/{entity_plural}` | List all {entity_plural} | Yes |
-| POST | `/api/{entity_plural}` | Create new {entity_} record | Yes |
-| GET | `/api/{entity_plural}/{{id}}` | Get specific {entity_} details | Yes |
-| PUT | `/api/{entity_plural}/{{id}}` | Update {entity_} | Yes |
-| DELETE | `/api/{entity_plural}/{{id}}` | Delete {entity_} | Yes |
-""",
-        "database": f"""-- Database Schema: {title}
+| POST | `/api/{entity_plural}` | Create new {entity} record | Yes |
+| GET | `/api/{entity_plural}/{id}` | Get specific {entity} details | Yes |
+| PUT | `/api/{entity_plural}/{id}` | Update {entity} | Yes |
+| DELETE | `/api/{entity_plural}/{id}` | Delete {entity} | Yes |
+"""
+
+    raw_database = """-- Database Schema: {title}
 -- Target: PostgreSQL / SQLite
 
 CREATE TABLE IF NOT EXISTS users (
@@ -130,9 +139,10 @@ INSERT OR IGNORE INTO users (id, username, email, hashed_password, role) VALUES
 INSERT OR IGNORE INTO {entity_plural} (name, description, status, created_by) VALUES 
 ('Initial Sample Entry A', 'This is a sample generated record from the database designer.', 'active', 1),
 ('Maintenance Request B', 'System review and security audit parameters.', 'pending', 2);
-""",
-        "backend": {
-            f"backend/app/core/config.py": f"""# backend/app/core/config.py
+"""
+
+    # Backend source codes
+    raw_config_py = """# backend/app/core/config.py
 import os
 from pydantic_settings import BaseSettings
 
@@ -147,8 +157,9 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
-""",
-            f"backend/app/database/connection.py": """# backend/app/database/connection.py
+"""
+
+    raw_connection_py = """# backend/app/database/connection.py
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -166,8 +177,9 @@ def get_db():
         yield db
     finally:
         db.close()
-""",
-            f"backend/app/database/models.py": f"""# backend/app/database/models.py
+"""
+
+    raw_models_py = """# backend/app/database/models.py
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
 from sqlalchemy.sql import func
 from app.database.connection import Base
@@ -192,8 +204,9 @@ class {entity_cap}(Base):
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-""",
-            f"backend/app/api/auth.py": """# backend/app/api/auth.py
+"""
+
+    raw_auth_py = """# backend/app/api/auth.py
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -207,12 +220,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 @router.post("/register")
 def register(username: str, email: str, password: str, db: Session = Depends(get_db)):
-    # Simulating standard registration logic
     existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
     
-    # In production, hash the password
     new_user = User(username=username, email=email, hashed_password=password, role="user")
     db.add(new_user)
     db.commit()
@@ -225,14 +236,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or user.hashed_password != form_data.password:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    # Generate simple mock JWT details
     return {
         "access_token": f"mock_jwt_token_for_{user.username}",
         "token_type": "bearer",
         "role": user.role
     }
-""",
-            f"backend/app/api/{entity_plural}.py": f"""# backend/app/api/{entity_plural}.py
+"""
+
+    raw_routes_py = """# backend/app/api/{entity_plural}.py
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -254,14 +265,14 @@ def create_record(name: str, description: str = None, status: str = "pending", d
     db.refresh(record)
     return record
 
-@router.get("/{{record_id}}")
+@router.get("/{record_id}")
 def get_record(record_id: int, db: Session = Depends(get_db)):
     record = db.query({entity_cap}).filter({entity_cap}.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     return record
 
-@router.put("/{{record_id}}")
+@router.put("/{record_id}")
 def update_record(record_id: int, name: str = None, description: str = None, status: str = None, db: Session = Depends(get_db)):
     record = db.query({entity_cap}).filter({entity_cap}.id == record_id).first()
     if not record:
@@ -276,16 +287,17 @@ def update_record(record_id: int, name: str = None, description: str = None, sta
     db.refresh(record)
     return record
 
-@router.delete("/{{record_id}}")
+@router.delete("/{record_id}")
 def delete_record(record_id: int, db: Session = Depends(get_db)):
     record = db.query({entity_cap}).filter({entity_cap}.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     db.delete(record)
     db.commit()
-    return {{"message": "Record deleted successfully"}}
-""",
-            f"backend/app/main.py": f"""# backend/app/main.py
+    return {"message": "Record deleted successfully"}
+"""
+
+    raw_main_py = """# backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -310,46 +322,47 @@ app.include_router({entity_plural}.router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def health_check():
-    return {{"status": "online", "service": settings.PROJECT_NAME}}
+    return {"status": "online", "service": settings.PROJECT_NAME}
 """
-        },
-        "frontend": {
-            "frontend/package.json": f"""{{
+
+    # Frontend source codes
+    raw_package_json = """{
   "name": "{slug}-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {{
+  "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
-  }},
-  "dependencies": {{
+  },
+  "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "lucide-react": "^0.263.0"
-  }},
-  "devDependencies": {{
+  },
+  "devDependencies": {
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.0.3",
     "vite": "^4.4.5"
-  }}
-}}
-""",
-            "frontend/vite.config.js": """import { defineConfig } from 'vite'
+  }
+}
+"""
+
+    raw_vite_config = """import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000
   }
 })
-""",
-            "frontend/src/index.css": """:root {
+"""
+
+    raw_index_css = """:root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -373,8 +386,9 @@ body {
 h1, h2, h3, h4 {
   color: #f8fafc;
 }
-""",
-            "frontend/src/main.jsx": """import React from 'react'
+"""
+
+    raw_main_jsx = """import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
@@ -384,12 +398,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
-""",
-            "frontend/src/App.jsx": f"""// frontend/src/App.jsx
-import React, { useState, useEffect } from 'react';
-import {{ Layout, Users, Settings as SettingsIcon, AlertCircle, Plus, Trash2, CheckCircle }} from 'lucide-react';
+"""
 
-export default function App() {{
+    raw_app_jsx = """// frontend/src/App.jsx
+import React, { useState, useEffect } from 'react';
+import { Layout, Users, Settings as SettingsIcon, AlertCircle, Plus, Trash2, CheckCircle } from 'lucide-react';
+
+export default function App() {
   const [records, setRecords] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -397,47 +412,46 @@ export default function App() {{
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
-  // Simulated fetching from FastAPI Backend
-  useEffect(() => {{
-    setTimeout(() => {{
+  useEffect(() => {
+    setTimeout(() => {
       setRecords([
-        {{ id: 1, name: "Sample Record 1", description: "Created by Database Seeding", status: "active" }},
-        {{ id: 2, name: "Sample Record 2", description: "Verification parameters", status: "pending" }}
+        { id: 1, name: "Sample Record 1", description: "Created by Database Seeding", status: "active" },
+        { id: 2, name: "Sample Record 2", description: "Verification parameters", status: "pending" }
       ]);
       setLoading(false);
-    }}, 1000);
-  }}, []);
+    }, 1000);
+  }, []);
 
-  const handleAdd = (e) => {{
+  const handleAdd = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    const newRecord = {{
+    const newRecord = {
       id: Date.now(),
       name,
       description,
       status
-    }};
+    };
     setRecords([...records, newRecord]);
     setName('');
     setDescription('');
     setStatus('pending');
-  }};
+  };
 
-  const handleDelete = (id) => {{
+  const handleDelete = (id) => {
     setRecords(records.filter(r => r.id !== id));
-  }};
+  };
 
   return (
-    <div style={{{{ display: 'flex', height: '100vh', background: '#0b0f19', color: '#cbd5e1' }}}}>
+    <div style={{ display: 'flex', height: '100vh', background: '#0b0f19', color: '#cbd5e1' }}>
       {/* Sidebar */}
-      <div style={{{{ width: '250px', background: '#111827', borderRight: '1px solid #1f2937', padding: '20px' }}}}>
-        <h2 style={{{{ color: '#6366f1', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem' }}}}>
-          <Layout size={{24}} /> {title}
+      <div style={{ width: '250px', background: '#111827', borderRight: '1px solid #1f2937', padding: '20px' }}>
+        <h2 style={{ color: '#6366f1', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem' }}>
+          <Layout size={24} /> {title}
         </h2>
-        <nav style={{{{ marginTop: '30px', display: 'flex', flexDirection: 'column', gap: '8px' }}}}>
+        <nav style={{ marginTop: '30px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <button 
             onClick={() => setActiveTab('dashboard')}
-            style={{{{
+            style={{
               textAlign: 'left',
               padding: '12px',
               borderRadius: '6px',
@@ -448,13 +462,13 @@ export default function App() {{
               display: 'flex',
               alignItems: 'center',
               gap: '10px'
-            }}}}
+            }}
           >
             Dashboard
           </button>
           <button 
             onClick={() => setActiveTab('{entity_plural}')}
-            style={{{{
+            style={{
               textAlign: 'left',
               padding: '12px',
               borderRadius: '6px',
@@ -465,7 +479,7 @@ export default function App() {{
               display: 'flex',
               alignItems: 'center',
               gap: '10px'
-            }}}}
+            }}
           >
             Manage {entity_plural_cap}
           </button>
@@ -473,129 +487,128 @@ export default function App() {{
       </div>
 
       {/* Main Panel */}
-      <div style={{{{ flex: 1, padding: '30px', overflowY: 'auto' }}}}>
-        <header style={{{{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1f2937', paddingBottom: '15px' }}}}>
-          <h1 style={{{{ margin: 0 }}}}>{{activeTab === 'dashboard' ? 'Overview Dashboard' : 'Manage ' + '{entity_plural_cap}'}}</h1>
-          <div style={{{{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}}}>
-            <CheckCircle size={{18}} /> Backend Connection Stable
+      <div style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1f2937', paddingBottom: '15px' }}>
+          <h1 style={{ margin: 0 }}>{activeTab === 'dashboard' ? 'Overview Dashboard' : 'Manage ' + '{entity_plural_cap}'}</h1>
+          <div style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <CheckCircle size={18} /> Backend Connection Stable
           </div>
         </header>
 
         {loading ? (
-          <div style={{{{ marginTop: '100px', textAlign: 'center', color: '#9ca3af' }}}}>Loading module data...</div>
+          <div style={{ marginTop: '100px', textAlign: 'center', color: '#9ca3af' }}>Loading module data...</div>
         ) : (
-          <div style={{{{ marginTop: '30px' }}}}>
-            {{activeTab === 'dashboard' ? (
+          <div style={{ marginTop: '30px' }}>
+            {activeTab === 'dashboard' ? (
               <div>
-                <div style={{{{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}}}>
-                  <div style={{{{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}}}>
-                    <div style={{{{ color: '#94a3b8', fontSize: '0.875rem' }}}}>Total {entity_plural_cap}</div>
-                    <div style={{{{ fontSize: '2rem', fontWeight: 'bold', color: '#fff' }}}}>{{records.length}}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+                  <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Total {entity_plural_cap}</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#fff' }}>{records.length}</div>
                   </div>
-                  <div style={{{{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}}}>
-                    <div style={{{{ color: '#94a3b8', fontSize: '0.875rem' }}}}>Active Entries</div>
-                    <div style={{{{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}}}>
-                      {{records.filter(r => r.status === 'active').length}}
+                  <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Active Entries</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>
+                      {records.filter(r => r.status === 'active').length}
                     </div>
                   </div>
-                  <div style={{{{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}}}>
-                    <div style={{{{ color: '#94a3b8', fontSize: '0.875rem' }}}}>Pending Review</div>
-                    <div style={{{{ fontSize: '2rem', fontWeight: 'bold', color: '#f59e0b' }}}}>
-                      {{records.filter(r => r.status === 'pending').length}}
+                  <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Pending Review</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                      {records.filter(r => r.status === 'pending').length}
                     </div>
                   </div>
                 </div>
 
-                <h3 style={{{{ marginBottom: '15px' }}}}>Recent Activity</h3>
-                <div style={{{{ background: '#111827', borderRadius: '8px', border: '1px solid #1f2937', padding: '15px' }}}}>
-                  {/* Grid or Simple list */}
-                  {{records.length === 0 ? (
-                    <div style={{{{ color: '#64748b' }}}}>No entries. Populate records to view logs.</div>
+                <h3 style={{ marginBottom: '15px' }}>Recent Activity</h3>
+                <div style={{ background: '#111827', borderRadius: '8px', border: '1px solid #1f2937', padding: '15px' }}>
+                  {records.length === 0 ? (
+                    <div style={{ color: '#64748b' }}>No entries. Populate records to view logs.</div>
                   ) : (
                     records.map(r => (
-                      <div key={{r.id}} style={{{{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1f2937' }}}}>
+                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1f2937' }}>
                         <div>
-                          <strong>{{r.name}}</strong>
-                          <span style={{{{ color: '#64748b', marginLeft: '10px', fontSize: '0.85rem' }}}}>{{r.description}}</span>
+                          <strong>{r.name}</strong>
+                          <span style={{ color: '#64748b', marginLeft: '10px', fontSize: '0.85rem' }}>{r.description}</span>
                         </div>
-                        <span style={{{{ 
+                        <span style={{ 
                           color: r.status === 'active' ? '#10b981' : '#f59e0b',
                           background: r.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
                           padding: '2px 8px',
                           borderRadius: '4px',
                           fontSize: '0.8rem'
-                        }}}}>{{r.status}}</span>
+                        }}>{r.status}</span>
                       </div>
                     ))
-                  )}}
+                  )}
                 </div>
               </div>
             ) : (
               <div>
-                <form onSubmit={{handleAdd}} style={{{{ background: '#1e293b', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}}}>
-                  <h3 style={{{{ marginTop: 0 }}}}>Add New Record</h3>
-                  <div style={{{{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}}}>
+                <form onSubmit={handleAdd} style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', marginBottom: '30px' }}>
+                  <h3 style={{ marginTop: 0 }}>Add New Record</h3>
+                  <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                     <input 
                       type="text" 
                       placeholder="Name" 
-                      value={{name}} 
-                      onChange={{(e) => setName(e.target.value)}}
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)}
                       required
-                      style={{{{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}}}
+                      style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}
                     />
                     <input 
                       type="text" 
                       placeholder="Description" 
-                      value={{description}} 
-                      onChange={{(e) => setDescription(e.target.value)}}
-                      style={{{{ flex: 2, padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}}}
+                      value={description} 
+                      onChange={(e) => setDescription(e.target.value)}
+                      style={{ flex: 2, padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}
                     />
                     <select 
-                      value={{status}} 
-                      onChange={{(e) => setStatus(e.target.value)}}
-                      style={{{{ padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}}}
+                      value={status} 
+                      onChange={(e) => setStatus(e.target.value)}
+                      style={{ padding: '10px', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: '#fff' }}
                     >
                       <option value="pending">Pending</option>
                       <option value="active">Active</option>
                     </select>
-                    <button type="submit" style={{{{ padding: '10px 20px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}}}>
+                    <button type="submit" style={{ padding: '10px 20px', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                       Create
                     </button>
                   </div>
                 </form>
 
-                <h3 style={{{{ marginBottom: '15px' }}}}>All Records</h3>
-                <div style={{{{ background: '#111827', borderRadius: '8px', border: '1px solid #1f2937' }}}}>
-                  {{records.length === 0 ? (
-                    <div style={{{{ padding: '20px', textAlign: 'center', color: '#64748b' }}}}>No entries found. Add one above!</div>
+                <h3 style={{ marginBottom: '15px' }}>All Records</h3>
+                <div style={{ background: '#111827', borderRadius: '8px', border: '1px solid #1f2937' }}>
+                  {records.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No entries found. Add one above!</div>
                   ) : (
                     records.map(r => (
-                      <div key={{r.id}} style={{{{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid #1f2937', alignItems: 'center' }}}}>
+                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 20px', borderBottom: '1px solid #1f2937', alignItems: 'center' }}>
                         <div>
-                          <strong style={{{{ color: '#fff' }}}}>{{r.name}}</strong>
-                          <p style={{{{ margin: '5px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}}}>{{r.description}}</p>
+                          <strong style={{ color: '#fff' }}>{r.name}</strong>
+                          <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>{r.description}</p>
                         </div>
-                        <div style={{{{ display: 'flex', alignItems: 'center', gap: '15px' }}}}>
-                          <span style={{{{ 
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <span style={{ 
                             color: r.status === 'active' ? '#10b981' : '#f59e0b',
                             background: r.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
                             padding: '4px 10px',
                             borderRadius: '4px',
                             fontSize: '0.85rem'
-                          }}}}>{{r.status}}</span>
+                          }}>{r.status}</span>
                           <button 
                             onClick={() => handleDelete(r.id)} 
-                            style={{{{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}}}
+                            style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                           >
-                            <Trash2 size={{18}} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </div>
                     ))
-                  )}}
+                  )}
                 </div>
               </div>
-            )}}
+            )}
           </div>
         )}
       </div>
@@ -603,8 +616,8 @@ export default function App() {{
   );
 }
 """
-        },
-        "review": f"""# Code Review: {title}
+
+    raw_review = """# Code Review: {title}
 *Total issues flagged: 3*
 
 1. **Vulnerability: Plaintext SQL Password Seed** (High Severity)
@@ -621,8 +634,9 @@ export default function App() {{
    - *File*: `backend/app/main.py`
    - *Finding*: CORS `allow_origins=["*"]` configured.
    - *Recommendation*: Restrict origins explicitly in production configuration.
-""",
-        "tests": f"""# Unit Tests: {title}
+"""
+
+    raw_tests = """# Unit Tests: {title}
 
 ```python
 # backend/tests/test_{entity_plural}.py
@@ -639,26 +653,22 @@ def test_health_check():
     assert response.json()["status"] == "online"
 
 def test_get_{entity_plural}_unauthorized():
-    # Attempting to access protected list routes
     response = client.get("/api/{entity_plural}")
-    # Returns empty or status-controlled mock values depending on test setup
     assert response.status_code in [200, 401]
 
 def test_create_and_delete_{entity_plural}():
-    # Add record
-    res = client.post("/api/{entity_plural}/", params={{"name": "Test Entry", "description": "Automated test description", "status": "pending"}})
+    res = client.post("/api/{entity_plural}/", params={"name": "Test Entry", "description": "Automated test description", "status": "pending"})
     assert res.status_code == 201
     data = res.json()
     assert data["name"] == "Test Entry"
     
-    # Delete record
     record_id = data["id"]
-    del_res = client.delete(f"/api/{entity_plural}/{{record_id}}")
+    del_res = client.delete(f"/api/{entity_plural}/{record_id}")
     assert del_res.status_code == 200
 ```
-""",
-        "docs": {
-            "README.md": f"""# {title}
+"""
+
+    raw_readme = """# {title}
 
 This full-stack application was built by **AutoDev AI**, an agentic software development system. It includes a FastAPI backend framework connecting to a relational database, and an interactive frontend dashboard interface built using React.
 
@@ -671,8 +681,9 @@ This full-stack application was built by **AutoDev AI**, an agentic software dev
 - **Backend**: Python, FastAPI, SQLAlchemy ORM, SQLite
 - **Frontend**: React (Vite), CSS3, Lucide Icons
 - **Database**: SQL DDL schemas
-""",
-            "API_DOCS.md": f"""# API Documentation - {title}
+"""
+
+    raw_apidocs = """# API Documentation - {title}
 
 Base URL: `http://localhost:8000/api`
 
@@ -683,11 +694,12 @@ Base URL: `http://localhost:8000/api`
 ### 📋 {entity_plural_cap} Routes
 - `GET /{entity_plural}` - Retrieve all entries.
 - `POST /{entity_plural}` - Add new {entity_cap} item.
-- `GET /{entity_plural}/{{id}}` - Retrieve single record.
-- `PUT /{entity_plural}/{{id}}` - Update records.
-- `DELETE /{entity_plural}/{{id}}` - Delete records.
-""",
-            "INSTALL.md": f"""# Installation & Setup: {title}
+- `GET /{entity_plural}/{id}` - Retrieve single record.
+- `PUT /{entity_plural}/{id}` - Update records.
+- `DELETE /{entity_plural}/{id}` - Delete records.
+"""
+
+    raw_install = """# Installation & Setup: {title}
 
 ### 🐍 Backend Deployment
 1. Ensure Python 3.10+ is installed on the system.
@@ -703,6 +715,58 @@ Base URL: `http://localhost:8000/api`
 4. Start development web-server: `npm run dev`
 5. Open browser at: `http://localhost:3000`
 """
+
+    # Do the placeholder replacements
+    requirements = replace_placeholders(raw_requirements, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    plan = replace_placeholders(raw_plan, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    database = replace_placeholders(raw_database, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    
+    backend_config = replace_placeholders(raw_config_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    backend_conn = replace_placeholders(raw_connection_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    backend_models = replace_placeholders(raw_models_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    backend_auth = replace_placeholders(raw_auth_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    backend_routes = replace_placeholders(raw_routes_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    backend_main = replace_placeholders(raw_main_py, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    
+    package_json = replace_placeholders(raw_package_json, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    vite_config = replace_placeholders(raw_vite_config, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    index_css = replace_placeholders(raw_index_css, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    main_jsx = replace_placeholders(raw_main_jsx, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    app_jsx = replace_placeholders(raw_app_jsx, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    
+    review = replace_placeholders(raw_review, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    tests = replace_placeholders(raw_tests, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    
+    readme = replace_placeholders(raw_readme, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    apidocs = replace_placeholders(raw_apidocs, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    install = replace_placeholders(raw_install, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+
+    hms = {
+        "title": title,
+        "requirements": requirements,
+        "plan": plan,
+        "database": database,
+        "backend": {
+            f"backend/app/core/config.py": backend_config,
+            f"backend/app/database/connection.py": backend_conn,
+            f"backend/app/database/models.py": backend_models,
+            f"backend/app/api/auth.py": backend_auth,
+            f"backend/app/api/{entity_plural}.py": backend_routes,
+            f"backend/app/main.py": backend_main,
+        },
+        "frontend": {
+            "frontend/package.json": package_json,
+            "frontend/vite.config.js": vite_config,
+            "frontend/src/index.css": index_css,
+            "frontend/src/main.jsx": main_jsx,
+            "frontend/src/App.jsx": app_jsx,
+        },
+        "review": review,
+        "tests": tests,
+        "docs": {
+            "README.md": readme,
+            "API_DOCS.md": apidocs,
+            "INSTALL.md": install
         }
     }
     return hms
