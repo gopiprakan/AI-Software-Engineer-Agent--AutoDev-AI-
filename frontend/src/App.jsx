@@ -674,15 +674,18 @@ export default function App() {
             ) : mdFile ? (
               <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-card)' }}>
                 {/* Dynamically extract mock code/requirements content from active generated files */}
-                {renderMarkdown(filesList.length > 0 ? (
-                  // Locate actual code block or md text content
-                  // Since task["files"] holds full text, we can fetch it dynamically via file query or state,
-                  // for ease, we fetch it asynchronously using our file endpoint, but to prevent infinite state re-renders, 
-                  // we can read it from a custom async fetcher hook or load it once when the tab switches.
-                  // Let's implement a small file prefetcher inside our tab handler:
-                  // For the tabs, let's keep a state storing loaded contents:
-                  <FileLoader taskId={taskId} filepath={mdFile} key={tabContentKey} render={renderMarkdown} />
-                ) : null)}
+                {filesList.length > 0 ? (
+                  <FileLoader 
+                    taskId={taskId} 
+                    filepath={mdFile} 
+                    key={tabContentKey} 
+                    render={renderMarkdown} 
+                  />
+                ) : (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '24px' }}>
+                    Awaiting Agent output...
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flex1: 1, alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.9rem', padding: '40px', textAlign: 'center' }}>
