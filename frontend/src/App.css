@@ -1,17 +1,20 @@
-/* Design System Variables */
+/* Design System Variables - "Solar Foundry" Visual Identity */
 :root {
-  --bg-main: #070a13;
-  --bg-card: #0d1222;
-  --bg-card-hover: #12192f;
-  --border-color: rgba(255, 255, 255, 0.07);
-  --color-primary: #8b5cf6; /* Neon violet */
-  --color-secondary: #06b6d4; /* Neon cyan */
-  --color-success: #10b981; /* Electric emerald */
-  --color-warning: #f59e0b; /* Amber */
-  --color-danger: #ef4444; /* Coral red */
-  --text-main: #cbd5e1;
-  --text-muted: #64748b;
-  --text-bright: #f8fafc;
+  --bg-main: #0a0807; /* Pure warm obsidian sand */
+  --bg-card: #151110; /* Iron core panel */
+  --bg-card-hover: #1e1816; /* Warm embers core */
+  --border-color: #261f1c; /* Heavy slate copper border */
+  --border-color-glow: rgba(255, 107, 0, 0.2);
+  
+  --color-primary: #ff6b00; /* Nixie tube neon orange */
+  --color-secondary: #eab308; /* Warm bronze gold */
+  --color-success: #84cc16; /* Patina green / raw sage */
+  --color-warning: #f97316; /* Saffron amber */
+  --color-danger: #ef4444; /* Liquid copper red */
+  
+  --text-main: #d6cfc7; /* Soft sand cream body */
+  --text-muted: #78716c; /* Warm rock grey */
+  --text-bright: #fafaf9; /* Warm plaster white */
   
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color-scheme: dark;
@@ -28,45 +31,48 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   overflow: hidden;
+  background-image: 
+    radial-gradient(circle at 5% 5%, rgba(255, 107, 0, 0.04) 0%, transparent 35%),
+    radial-gradient(circle at 95% 95%, rgba(234, 179, 8, 0.03) 0%, transparent 40%);
 }
 
-/* Scrollbar Customization */
+/* Scrollbar Customization - Industrial theme */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-main);
+  background: #0d0a09;
+  border-left: 1px solid var(--border-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #2e2521;
+  border: 2px solid #0d0a09;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--color-primary);
 }
 
-/* Glassmorphic Panel Layouts */
+/* App Wrapper */
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 45%);
 }
 
+/* Tactile Frame Header */
 .header {
   height: 64px;
-  background: rgba(13, 18, 34, 0.6);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .logo-section {
@@ -76,23 +82,24 @@ body {
 }
 
 .logo-title {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  font-size: 1.5rem;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: var(--text-bright);
   letter-spacing: -0.5px;
+  text-shadow: 0 0 10px rgba(255, 107, 0, 0.2);
 }
 
 .logo-badge {
-  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
   font-weight: 600;
-  color: var(--color-secondary);
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  color: var(--color-primary);
+  background: rgba(255, 107, 0, 0.06);
+  border: 1px solid rgba(255, 107, 0, 0.25);
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }
 
 .settings-bar {
@@ -101,76 +108,92 @@ body {
   gap: 16px;
 }
 
+/* Industrial Input Fields */
 .settings-input {
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  background: #0c0a09;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
   color: var(--text-bright);
   padding: 6px 12px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
   outline: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .settings-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 0 8px rgba(255, 107, 0, 0.15);
 }
 
+/* Tactile 3D mechanical button style */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  border-radius: 6px;
+  padding: 8px 18px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 4px;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid #000;
+  transition: all 0.1s ease;
   outline: none;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #7c3aed, #0891b2);
-  color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+  background: var(--color-primary);
+  color: #000;
+  box-shadow: 3px 3px 0px #853700;
+  transform: translate(-1px, -1px);
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #853700;
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #853700;
 }
 
 .btn-secondary {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid var(--border-color);
+  background: #1c1816;
+  border: 2px solid var(--border-color);
   color: var(--text-main);
+  box-shadow: 2px 2px 0px #000;
+  transform: translate(-1px, -1px);
 }
 
 .btn-secondary:hover {
-  background: rgba(30, 41, 59, 0.9);
+  background: #26201d;
   color: var(--text-bright);
+  transform: translate(-2px, -2px);
+  box-shadow: 3px 3px 0px #000;
 }
 
-/* Dashboard Workspace Layout */
+.btn-secondary:active {
+  transform: translate(0px, 0px);
+  box-shadow: 0px 0px 0px #000;
+}
+
+/* Dashboard Workspace Grid */
 .dashboard-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 320px 1fr 400px;
+  grid-template-columns: 330px 1fr 390px;
   height: calc(100vh - 64px);
+  background: #0a0807;
   overflow: hidden;
 }
 
-/* Column Base Styling */
+/* Tactile Rackmount Panel Container */
 .panel {
-  background: rgba(13, 18, 34, 0.4);
-  border-right: 1px solid var(--border-color);
+  background: #0e0c0b;
+  border-right: 2px solid var(--border-color);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -182,21 +205,24 @@ body {
 }
 
 .panel-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 14px 20px;
+  border-bottom: 2px solid var(--border-color);
+  background: #13100f;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .panel-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
   color: var(--text-bright);
   display: flex;
   align-items: center;
   gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .panel-content {
@@ -205,14 +231,14 @@ body {
   padding: 20px;
 }
 
-/* Input Prompt Area */
+/* Prompt Console Container */
 .prompt-container {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: rgba(30, 41, 59, 0.25);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: #151110;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
   padding: 16px;
   margin-bottom: 20px;
 }
@@ -223,28 +249,31 @@ body {
   resize: none;
   height: 80px;
   color: var(--text-bright);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-family: inherit;
   outline: none;
+  line-height: 1.5;
 }
 
-/* Agent Pipeline Flow UI */
+/* Execution Flow Assembly Line UI */
 .agent-flow-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  padding-left: 8px;
 }
 
 .agent-node {
-  background: rgba(13, 18, 34, 0.8);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: #110e0d;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
   padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .agent-node::after {
@@ -262,10 +291,11 @@ body {
   display: none;
 }
 
+/* Nixie active glow */
 .agent-node.active {
   border-color: var(--color-primary);
-  background: rgba(139, 92, 246, 0.05);
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
+  background: rgba(255, 107, 0, 0.03);
+  box-shadow: 0 0 16px rgba(255, 107, 0, 0.15);
   animation: pulse-border 1.5s infinite alternate;
 }
 
@@ -275,7 +305,7 @@ body {
 
 .agent-node.completed {
   border-color: var(--color-success);
-  background: rgba(16, 185, 129, 0.03);
+  background: rgba(132, 204, 22, 0.02);
 }
 
 .agent-node.completed::after {
@@ -303,20 +333,24 @@ body {
 
 .completed .agent-status-dot {
   background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
 }
 
 .agent-name {
+  font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
   font-size: 0.85rem;
   color: var(--text-bright);
 }
 
 .agent-role {
-  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  margin-top: 1px;
 }
 
-/* File Tree Explorer styling */
+/* File explorer styling */
 .file-tree {
   display: flex;
   flex-direction: column;
@@ -328,21 +362,22 @@ body {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   color: var(--text-main);
 }
 
 .file-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: #1c1816;
   color: var(--text-bright);
 }
 
 .file-item.active {
-  background: rgba(139, 92, 246, 0.1);
+  background: rgba(255, 107, 0, 0.08);
   color: var(--color-primary);
   border-left: 2px solid var(--color-primary);
   padding-left: 10px;
@@ -350,8 +385,8 @@ body {
 
 /* Center Panel Tabs & Editor Workspace */
 .workspace-tabs {
-  background: rgba(13, 18, 34, 0.6);
-  border-bottom: 1px solid var(--border-color);
+  background: #100d0c;
+  border-bottom: 2px solid var(--border-color);
   display: flex;
   height: 40px;
   overflow-x: auto;
@@ -362,42 +397,44 @@ body {
   align-items: center;
   gap: 8px;
   padding: 0 20px;
-  font-size: 0.85rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: var(--text-muted);
-  border-right: 1px solid var(--border-color);
+  border-right: 2px solid var(--border-color);
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
 }
 
 .workspace-tab:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: #151110;
   color: var(--text-bright);
 }
 
 .workspace-tab.active {
-  background: var(--bg-card);
-  color: var(--text-bright);
-  border-bottom: 2px solid var(--color-secondary);
+  background: #151110;
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .editor-container {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg-card);
+  background: #151110;
   position: relative;
   overflow: hidden;
 }
 
 .code-textarea {
   flex: 1;
-  background: #080c16;
+  background: #0b0908;
   border: none;
   padding: 24px;
-  color: #22d3ee;
-  font-family: 'Fira Code', monospace;
-  font-size: 0.9rem;
+  color: #ffb07c; /* Nixie copper filament code color */
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
   line-height: 1.6;
   resize: none;
   outline: none;
@@ -413,25 +450,25 @@ body {
   gap: 10px;
 }
 
-/* Right Console/Terminal Panel */
+/* Nixie Gas-Filament Log Console */
 .terminal-console {
   flex: 1;
-  background: #05070c;
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
+  background: #080605;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
   padding: 16px;
-  font-family: 'Fira Code', monospace;
-  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
   overflow-y: auto;
-  color: #38bdf8;
+  color: #e5af90; /* Warm glow text */
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+  box-shadow: inset 0 3px 10px rgba(0,0,0,0.85);
 }
 
 .terminal-line {
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: pre-wrap;
 }
 
@@ -446,17 +483,18 @@ body {
 .terminal-line.system {
   color: var(--color-primary);
   font-weight: 500;
+  text-shadow: 0 0 8px rgba(255, 107, 0, 0.3);
 }
 
-/* Keyframes Animations */
+/* Animations */
 @keyframes pulse-border {
   from {
-    border-color: rgba(139, 92, 246, 0.4);
-    box-shadow: 0 0 8px rgba(139, 92, 246, 0.1);
+    border-color: rgba(255, 107, 0, 0.4);
+    box-shadow: 0 0 8px rgba(255, 107, 0, 0.08);
   }
   to {
-    border-color: rgba(139, 92, 246, 1);
-    box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+    border-color: rgba(255, 107, 0, 1);
+    box-shadow: 0 0 16px rgba(255, 107, 0, 0.25);
   }
 }
 
@@ -465,56 +503,69 @@ body {
   to { opacity: 1; }
 }
 
-/* Preview Markdown & Spec layouts */
+/* Rendered specs typography styling */
 .markdown-preview {
   padding: 24px;
   overflow-y: auto;
   height: 100%;
-  font-size: 0.95rem;
-  line-height: 1.7;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  background: #151110;
+  color: var(--text-main);
 }
 
 .markdown-preview h1,
 .markdown-preview h2,
 .markdown-preview h3 {
-  font-family: 'Outfit', sans-serif;
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
+  font-family: 'Space Grotesk', sans-serif;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
   color: var(--text-bright);
+  font-weight: 700;
 }
 
 .markdown-preview h1 {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-color);
   padding-bottom: 8px;
   margin-top: 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.markdown-preview h2 {
+  font-size: 1.18rem;
+  border-left: 3px solid var(--color-primary);
+  padding-left: 10px;
 }
 
 .markdown-preview p {
-  margin-bottom: 1em;
+  margin-bottom: 1.1em;
 }
 
 .markdown-preview ul,
 .markdown-preview ol {
   margin-left: 20px;
-  margin-bottom: 1em;
+  margin-bottom: 1.2em;
 }
 
 .markdown-preview li {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .markdown-preview code {
-  font-family: 'Fira Code', monospace;
-  background: rgba(255, 255, 255, 0.06);
+  font-family: 'JetBrains Mono', monospace;
+  background: #1c1816;
+  color: var(--color-secondary);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 3px;
   font-size: 0.85em;
 }
 
 .markdown-preview pre {
-  background: #080c16;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: #0b0908;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
   padding: 16px;
   margin: 1.5em 0;
   overflow-x: auto;
@@ -524,22 +575,34 @@ body {
   background: transparent;
   padding: 0;
   border-radius: 0;
+  color: #ffb07c;
 }
 
 .markdown-preview table {
   width: 100%;
   border-collapse: collapse;
   margin: 1.5em 0;
+  background: #0f0d0c;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .markdown-preview th,
 .markdown-preview td {
   border: 1px solid var(--border-color);
-  padding: 10px 12px;
-  text-align: left;
+  padding: 12px 14px;
+  font-size: 0.85rem;
 }
 
 .markdown-preview th {
-  background: rgba(255, 255, 255, 0.03);
-  font-weight: 600;
+  background: #1a1513;
+  color: var(--text-bright);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+}
+
+.markdown-preview td {
+  color: var(--text-main);
 }

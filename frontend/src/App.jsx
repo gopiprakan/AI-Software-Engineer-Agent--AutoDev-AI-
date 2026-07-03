@@ -19,13 +19,13 @@ import {
 } from 'lucide-react';
 
 const AGENT_PIPELINE = [
-  { name: "Requirement Analyzer", role: "Business Analyst", icon: FileText, color: "#a855f7" },
-  { name: "Project Planner", role: "Software Architect", icon: HelpCircle, color: "#3b82f6" },
-  { name: "Database Designer", role: "Database Admin", icon: Database, color: "#14b8a6" },
-  { name: "Backend Generator", role: "Backend Dev", icon: Code, color: "#6366f1" },
-  { name: "Frontend Generator", role: "Frontend Dev", icon: FileCode, color: "#06b6d4" },
+  { name: "Requirement Analyzer", role: "Business Analyst", icon: FileText, color: "#f97316" },
+  { name: "Project Planner", role: "Software Architect", icon: HelpCircle, color: "#ca8a04" },
+  { name: "Database Designer", role: "Database Admin", icon: Database, color: "#84cc16" },
+  { name: "Backend Generator", role: "Backend Dev", icon: Code, color: "#ff6b00" },
+  { name: "Frontend Generator", role: "Frontend Dev", icon: FileCode, color: "#ea580c" },
   { name: "Code Reviewer", role: "Security Auditor", icon: ShieldAlert, color: "#ef4444" },
-  { name: "Test Generator", role: "QA Engineer", icon: CheckCircle, color: "#10b981" },
+  { name: "Test Generator", role: "QA Engineer", icon: CheckCircle, color: "#a3e635" },
   { name: "Documentation Generator", role: "Technical Writer", icon: BookOpen, color: "#f59e0b" }
 ];
 
