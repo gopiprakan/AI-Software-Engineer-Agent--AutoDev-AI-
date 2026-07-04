@@ -48,18 +48,25 @@ app.add_middleware(
 # Include core routes
 app.include_router(api_router)
 
-@app.get("/")
-def home():
-    return {
-        "message": "Welcome to AutoDev AI Backend API Server!",
-        "status": "online",
-        "endpoints": {
-            "generate": "/api/generate",
-            "status": "/api/status/{task_id}",
-            "file": "/api/file/{task_id}",
-            "export": "/api/export/{task_id}"
+# Mount frontend build directory as static files if it exists, fallback to API info JSON otherwise
+from fastapi.staticfiles import StaticFiles
+frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+
+if os.path.exists(frontend_dist_dir):
+    app.mount("/", StaticFiles(directory=frontend_dist_dir, html=True), name="frontend")
+else:
+    @app.get("/")
+    def home():
+        return {
+            "message": "Welcome to AutoDev AI Backend API Server!",
+            "status": "online",
+            "endpoints": {
+                "generate": "/api/generate",
+                "status": "/api/status/{task_id}",
+                "file": "/api/file/{task_id}",
+                "export": "/api/export/{task_id}"
+            }
         }
-    }
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

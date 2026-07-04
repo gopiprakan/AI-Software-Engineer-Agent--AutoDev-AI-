@@ -74,7 +74,7 @@ export default function App() {
 
     pollingRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/api/status/${tid}`);
+        const res = await fetch(`/api/status/${tid}`);
         if (!res.ok) throw new Error("Status fetch error");
         const data = await res.json();
         
@@ -108,7 +108,7 @@ export default function App() {
     setActiveFileContent("");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/generate", {
+      const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,7 +141,7 @@ export default function App() {
     setActiveFile(filepath);
     setSaveStatus("");
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/file/${tid}?path=${encodeURIComponent(filepath)}`);
+      const res = await fetch(`/api/file/${tid}?path=${encodeURIComponent(filepath)}`);
       if (!res.ok) throw new Error("Could not load file content");
       const data = await res.json();
       setActiveFileContent(data.content);
@@ -161,7 +161,7 @@ export default function App() {
     setSaveStatus("saving");
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/file/${taskId}`, {
+      const res = await fetch(`/api/file/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +184,7 @@ export default function App() {
   // Trigger server zip download
   const handleExportZip = () => {
     if (!taskId) return;
-    window.location.href = `http://127.0.0.1:8000/api/export/${taskId}`;
+    window.location.href = `/api/export/${taskId}`;
   };
 
   // Template select shortcuts
@@ -774,7 +774,7 @@ function FileLoader({ taskId, filepath, render }) {
       if (!taskId || !filepath) return;
       try {
         setLoading(true);
-        const res = await fetch(`http://127.0.0.1:8000/api/file/${taskId}?path=${encodeURIComponent(filepath)}`);
+        const res = await fetch(`/api/file/${taskId}?path=${encodeURIComponent(filepath)}`);
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (active) {
