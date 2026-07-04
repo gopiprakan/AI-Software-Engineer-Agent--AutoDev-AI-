@@ -32,9 +32,9 @@ const AGENT_PIPELINE = [
 export default function App() {
   // Input parameters
   const [prompt, setPrompt] = useState("Build a Hospital Management System.");
-  const [provider, setProvider] = useState("simulated");
+  const [provider, setProvider] = useState("gemini");
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("gemini-1.5-flash");
+  const [model, setModel] = useState("gemini-3.5-flash");
   const [apiUrl, setApiUrl] = useState("http://localhost:11434");
 
   // State control
@@ -483,7 +483,7 @@ export default function App() {
               <input 
                 type="password" 
                 className="settings-input" 
-                placeholder="Enter API Key"
+                placeholder="Using server key (.env)"
                 value={apiKey} 
                 onChange={(e) => setApiKey(e.target.value)}
               />
@@ -509,7 +509,7 @@ export default function App() {
               <input 
                 type="text" 
                 className="settings-input" 
-                placeholder={provider === "gemini" ? "gemini-1.5-flash" : provider === "openai" ? "gpt-4o" : "llama3"}
+                placeholder={provider === "gemini" ? "gemini-3.5-flash" : provider === "openai" ? "gpt-4o" : "llama3"}
                 value={model} 
                 onChange={(e) => setModel(e.target.value)}
                 style={{ width: '130px' }}

@@ -88,3 +88,36 @@ def export_workspace(task_id: str):
         media_type="application/x-zip-compressed",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.post("/forward-my-service")
+async def forward_my_service(req: Dict[str, Any]):
+    import os
+    import httpx
+    api_key = os.environ.get("API_KEY") or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="API_KEY not configured on server")
+    
+    model = req.get("model", "gemini-1.5-flash")
+    contents = req.get("contents")
+    generation_config = req.get("generationConfig")
+    
+    if not contents:
+        raise HTTPException(status_code=400, detail="Missing 'contents' in request body")
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": contents
+    }
+    if generation_config:
+        payload["generationConfig"] = generation_config
+        
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"External service error: {e.response.text}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Proxy error: {str(e)}")
+

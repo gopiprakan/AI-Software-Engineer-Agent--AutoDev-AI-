@@ -38,7 +38,11 @@ class BaseAgent:
         model = settings.get("model", "")
         api_url = settings.get("apiUrl", "")
 
-        if provider == "simulated" or not api_key and provider in ["openai", "gemini"]:
+        if not api_key:
+            import os
+            api_key = os.environ.get("API_KEY") or os.environ.get("GEMINI_API_KEY") or ""
+
+        if provider == "simulated" or (not api_key and provider in ["openai", "gemini"]):
             self.log("Running in simulated mode (no API key or simulated provider selected).")
             return ""
 
