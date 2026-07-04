@@ -6,10 +6,7 @@ from agents import (
     PlannerAgent,
     DatabaseAgent,
     BackendAgent,
-    FrontendAgent,
-    ReviewAgent,
-    TestingAgent,
-    DocumentationAgent
+    FrontendAgent
 )
 
 class AgentRunner:
@@ -48,10 +45,7 @@ class AgentRunner:
             PlannerAgent(),
             DatabaseAgent(),
             BackendAgent(),
-            FrontendAgent(),
-            ReviewAgent(),
-            TestingAgent(),
-            DocumentationAgent()
+            FrontendAgent()
         ]
 
         # Initial state passed through pipeline
