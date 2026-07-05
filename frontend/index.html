@@ -1,178 +1,198 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AutoDev AI - Multi-Agent Software Development Platform</title>
-    <!-- Studio Visual Identity Typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/style.css">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-  </head>
-  <body>
-    <div class="app-container">
-      <!-- Top Header Navigation -->
-      <header class="header">
-        <div class="logo-section">
-          <span style="font-size: 1.5rem">🚀</span>
-          <span class="logo-title">AutoDev AI</span>
-          <span class="logo-badge">Multi-Agent Engine</span>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoDev AI - Multi-Agent Software Development Platform</title>
+  <!-- Studio Visual Identity Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Top Header Navigation -->
+    <header class="header">
+      <div class="logo-section">
+        <span style="font-size: 1.5rem"></span>
+        <span class="logo-title">AutoDev AI</span>
+        <span class="logo-badge">Multi-Agent Engine</span>
+      </div>
+
+      <div class="settings-bar">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Provider:</span>
+          <select id="provider" class="settings-input" style="background: #1e293b;">
+            <option value="simulated">Simulated Mode (Fast & Offline)</option>
+            <option value="gemini">Gemini API</option>
+            <option value="openai">OpenAI API</option>
+            <option value="ollama">Ollama (Local LLM)</option>
+          </select>
         </div>
 
-        <div class="settings-bar">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Provider:</span>
-            <select id="provider" class="settings-input" style="background: #1e293b;">
-              <option value="simulated">Simulated Mode (Fast & Offline)</option>
-              <option value="gemini">Gemini API</option>
-              <option value="openai">OpenAI API</option>
-              <option value="ollama">Ollama (Local LLM)</option>
-            </select>
-          </div>
-
-          <div id="apiKeyContainer" style="display: none; align-items: center; gap: 6px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">API Key:</span>
-            <input id="apiKey" type="password" class="settings-input" placeholder="Using server key (.env)" />
-          </div>
-
-          <div id="apiUrlContainer" style="display: none; align-items: center; gap: 6px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Ollama URL:</span>
-            <input id="apiUrl" type="text" class="settings-input" placeholder="http://localhost:11434" value="http://localhost:11434" />
-          </div>
-
-          <div id="modelContainer" style="display: none; align-items: center; gap: 6px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Model:</span>
-            <input id="model" type="text" class="settings-input" placeholder="gemini-3.5-flash" style="width: 130px;" />
-          </div>
-
-          <button id="deployBtn" class="btn btn-primary">
-            <i data-lucide="play" style="width: 16px; height: 16px;"></i> Deploy Agents
-          </button>
+        <div id="apiKeyContainer" style="display: none; align-items: center; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">API Key:</span>
+          <input id="apiKey" type="password" class="settings-input" placeholder="Using server key (.env)" />
         </div>
-      </header>
 
-      <!-- Main Grid Dashboard -->
-      <main class="dashboard-grid">
-        
-        <!-- Panel 1: Prompt & Agent Pipeline -->
-        <section class="panel">
-          <div class="panel-header">
-            <h2 class="panel-title">Orchestration Control</h2>
-          </div>
-          
-          <div class="panel-content" style="display: flex; flex-direction: column; gap: 20px;">
-            <div class="prompt-container">
-              <span style="font-size: 0.8rem; font-weight: bold; color: var(--color-secondary);">Project Description</span>
-              <textarea id="promptInput" class="prompt-textarea" placeholder="Describe the application you want to build...">Build a Hospital Management System.</textarea>
-              
-              <!-- Quick Template Shortcuts -->
-              <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                <button class="template-btn" data-prompt="Build a Hospital Management System">🏥 Hospital</button>
-                <button class="template-btn" data-prompt="Build an E-commerce Platform with stripe checkout">🛒 E-Commerce</button>
-                <button class="template-btn" data-prompt="Build a Trello-like Task Planner App">📅 Task Planner</button>
-              </div>
-            </div>
+        <div id="apiUrlContainer" style="display: none; align-items: center; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Ollama URL:</span>
+          <input id="apiUrl" type="text" class="settings-input" placeholder="http://localhost:11434"
+            value="http://localhost:11434" />
+        </div>
 
-            <!-- Visual Node Agent Stack -->
-            <div>
-              <h3 style="font-size: 0.85rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px;">
-                Agent Execution Pipeline
-              </h3>
-              <div id="agentPipeline" class="agent-flow-list">
-                <!-- Agents injected by JS -->
-              </div>
-            </div>
-          </div>
-        </section>
+        <div id="modelContainer" style="display: none; align-items: center; gap: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Model:</span>
+          <input id="model" type="text" class="settings-input" placeholder="gemini-3.5-flash" style="width: 130px;" />
+        </div>
 
-        <!-- Panel 2: Code Explorer, Tabs, Editor Content -->
-        <section class="panel" style="background: #0a0d16;">
-          <!-- Top Tabs to browse code/designs -->
-          <div class="workspace-tabs" id="workspaceTabs">
-            <div class="workspace-tab active" data-tab="requirements">Requirements</div>
-            <div class="workspace-tab" data-tab="plan">Architecture Plan</div>
-            <div class="workspace-tab" data-tab="database">DB Schema</div>
-            <div class="workspace-tab" data-tab="review">Code Review</div>
-            <div id="editorTab" class="workspace-tab" data-tab="editor" style="display: none; border-left: 1px solid rgba(255,255,255,0.07);">💻 <span id="editorTabName">File</span></div>
-          </div>
+        <button id="deployBtn" class="btn btn-primary">
+          <i data-lucide="play" style="width: 16px; height: 16px;"></i> Deploy Agents
+        </button>
+      </div>
+    </header>
 
-          <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
-            
-            <div id="editorView" class="editor-container" style="display: none;">
-              <textarea id="codeTextarea" class="code-textarea"></textarea>
-              <div class="editor-actions">
-                <button id="discardBtn" class="btn btn-secondary" style="display: none; padding: 6px 12px; font-size: 0.8rem;">Discard</button>
-                <button id="saveBtn" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
-                  <i data-lucide="save" style="width: 13px; height: 13px;"></i> <span id="saveBtnText">Save Changes</span>
-                </button>
-              </div>
-            </div>
+    <!-- Main Grid Dashboard -->
+    <main class="dashboard-grid">
 
-            <div id="markdownView" style="flex: 1; overflow-y: auto; background: var(--bg-card);">
-              <div id="markdownContent" class="markdown-preview" style="padding: 24px;"></div>
-            </div>
+      <!-- Panel 1: Prompt & Agent Pipeline -->
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Orchestration Control</h2>
+        </div>
 
-            <div id="emptyView" style="display: flex; flex: 1; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.9rem; padding: 40px; text-align: center;">
-              <div>
-                <i data-lucide="terminal" style="width: 40px; height: 40px; margin: 0 auto 16px; color: var(--color-primary); opacity: 0.5;"></i>
-                <p>Awaiting pipeline output files.</p>
-                <p style="font-size: 0.8rem; margin-top: 6px;">Type a prompt on the left and click "Deploy Agents" to compile a project.</p>
-              </div>
+        <div class="panel-content" style="display: flex; flex-direction: column; gap: 20px;">
+          <div class="prompt-container">
+            <span style="font-size: 0.8rem; font-weight: bold; color: var(--color-secondary);">Project
+              Description</span>
+            <textarea id="promptInput" class="prompt-textarea"
+              placeholder="Describe the application you want to build...">Build a Hospital Management System.</textarea>
+
+            <!-- Quick Template Shortcuts -->
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+              <button class="template-btn" data-prompt="Build a Hospital Management System">🏥 Hospital</button>
+              <button class="template-btn" data-prompt="Build an E-commerce Platform with stripe checkout">🛒
+                E-Commerce</button>
+              <button class="template-btn" data-prompt="Build a Trello-like Task Planner App">📅 Task Planner</button>
             </div>
           </div>
-        </section>
 
-        <!-- Panel 3: File Explorer & Terminal logs -->
-        <section class="panel" style="width: 380px;">
-          <!-- Section A: Workspace Directory Tree -->
-          <div style="flex: 1; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden;">
-            <div class="panel-header" style="border-bottom: 1px solid var(--border-color);">
-              <h2 class="panel-title">Generated Workspace Explorer</h2>
-              <button id="exportZipBtn" class="btn btn-secondary" style="display: none; padding: 4px 10px; font-size: 0.75rem; align-items: center; gap: 4px;">
-                <i data-lucide="download" style="width: 12px; height: 12px;"></i> Export ZIP
+          <!-- Visual Node Agent Stack -->
+          <div>
+            <h3
+              style="font-size: 0.85rem; font-weight: bold; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px;">
+              Agent Execution Pipeline
+            </h3>
+            <div id="agentPipeline" class="agent-flow-list">
+              <!-- Agents injected by JS -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 2: Code Explorer, Tabs, Editor Content -->
+      <section class="panel" style="background: #0a0d16;">
+        <!-- Top Tabs to browse code/designs -->
+        <div class="workspace-tabs" id="workspaceTabs">
+          <div class="workspace-tab active" data-tab="requirements">Requirements</div>
+          <div class="workspace-tab" data-tab="plan">Architecture Plan</div>
+          <div class="workspace-tab" data-tab="database">DB Schema</div>
+          <div class="workspace-tab" data-tab="review">Code Review</div>
+          <div id="editorTab" class="workspace-tab" data-tab="editor"
+            style="display: none; border-left: 1px solid rgba(255,255,255,0.07);">💻 <span
+              id="editorTabName">File</span></div>
+        </div>
+
+        <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+
+          <div id="editorView" class="editor-container" style="display: none;">
+            <textarea id="codeTextarea" class="code-textarea"></textarea>
+            <div class="editor-actions">
+              <button id="discardBtn" class="btn btn-secondary"
+                style="display: none; padding: 6px 12px; font-size: 0.8rem;">Discard</button>
+              <button id="saveBtn" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;">
+                <i data-lucide="save" style="width: 13px; height: 13px;"></i> <span id="saveBtnText">Save Changes</span>
               </button>
             </div>
-            <div class="panel-content" style="overflow-y: auto;" id="fileExplorer">
-              <div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No generated files yet. Start the pipeline first!</div>
-            </div>
           </div>
 
-          <!-- Section B: Log Console / Stream -->
-          <div style="height: 350px; display: flex; flex-direction: column; overflow: hidden;">
-            <div class="panel-header">
-              <h2 class="panel-title">
-                <i data-lucide="terminal" style="width: 16px; height: 16px;"></i> Agent Log Output
-              </h2>
-              <span id="logStatusText" style="font-size: 0.75rem; color: var(--text-muted);">Idle</span>
-            </div>
-            
-            <div class="panel-content" style="padding: 12px;">
-              <div class="terminal-console" id="terminalConsole">
-                <div class="terminal-line system">Ready. Start agent deployment to view logs.</div>
-              </div>
+          <div id="markdownView" style="flex: 1; overflow-y: auto; background: var(--bg-card);">
+            <div id="markdownContent" class="markdown-preview" style="padding: 24px;"></div>
+          </div>
+
+          <div id="emptyView"
+            style="display: flex; flex: 1; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.9rem; padding: 40px; text-align: center;">
+            <div>
+              <i data-lucide="terminal"
+                style="width: 40px; height: 40px; margin: 0 auto 16px; color: var(--color-primary); opacity: 0.5;"></i>
+              <p>Awaiting pipeline output files.</p>
+              <p style="font-size: 0.8rem; margin-top: 6px;">Type a prompt on the left and click "Deploy Agents" to
+                compile a project.</p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-      </main>
-    </div>
-    
-    <style>
-      .template-btn {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        font-size: 0.72rem;
-        padding: 3px 8px;
-        color: var(--text-main);
-        cursor: pointer;
-      }
-    </style>
-    
-    <script type="module" src="/src/main.js"></script>
-  </body>
+      <!-- Panel 3: File Explorer & Terminal logs -->
+      <section class="panel" style="width: 380px;">
+        <!-- Section A: Workspace Directory Tree -->
+        <div
+          style="flex: 1; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden;">
+          <div class="panel-header" style="border-bottom: 1px solid var(--border-color);">
+            <h2 class="panel-title">Generated Workspace Explorer</h2>
+            <button id="exportZipBtn" class="btn btn-secondary"
+              style="display: none; padding: 4px 10px; font-size: 0.75rem; align-items: center; gap: 4px;">
+              <i data-lucide="download" style="width: 12px; height: 12px;"></i> Export ZIP
+            </button>
+          </div>
+          <div class="panel-content" style="overflow-y: auto;" id="fileExplorer">
+            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No generated files yet. Start the
+              pipeline first!</div>
+          </div>
+        </div>
+
+        <!-- Section B: Log Console / Stream -->
+        <div style="height: 350px; display: flex; flex-direction: column; overflow: hidden;">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <i data-lucide="terminal" style="width: 16px; height: 16px;"></i> Agent Log Output
+            </h2>
+            <span id="logStatusText" style="font-size: 0.75rem; color: var(--text-muted);">Idle</span>
+          </div>
+
+          <div class="panel-content" style="padding: 12px;">
+            <div class="terminal-console" id="terminalConsole">
+              <div class="terminal-line system">Ready. Start agent deployment to view logs.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <style>
+    .template-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+  </style>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>
