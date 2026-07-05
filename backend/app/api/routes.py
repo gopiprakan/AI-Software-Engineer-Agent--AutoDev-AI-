@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any
-from services.agent_runner import AgentRunner
+from app.services.agent_runner import AgentRunner
 
 router = APIRouter(prefix="/api")
 runner = AgentRunner()

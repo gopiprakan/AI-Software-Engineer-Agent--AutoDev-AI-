@@ -34,6 +34,8 @@ const apiUrlInput = document.getElementById("apiUrl");
 const modelContainer = document.getElementById("modelContainer");
 const modelInput = document.getElementById("model");
 const deployBtn = document.getElementById("deployBtn");
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
 const promptInput = document.getElementById("promptInput");
 const agentPipelineContainer = document.getElementById("agentPipeline");
 const terminalConsole = document.getElementById("terminalConsole");
@@ -143,7 +145,7 @@ async function handleDeployAgents() {
   renderContent();
 
   try {
-    const response = await fetch("/api/generate", {
+    const response = await fetch(`${API_BASE}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -185,7 +187,7 @@ function startPolling(tid) {
   
   pollingInterval = setInterval(async () => {
     try {
-      const res = await fetch(`/api/status/${tid}`);
+      const res = await fetch(`${API_BASE}/api/status/${tid}`);
       if (!res.ok) throw new Error("Status fetch error");
       const data = await res.json();
       
@@ -324,7 +326,7 @@ async function handleFileSelect(filepath) {
   updateTabs();
   
   try {
-    const res = await fetch(`/api/file/${taskId}?path=${encodeURIComponent(filepath)}`);
+    const res = await fetch(`${API_BASE}/api/file/${taskId}?path=${encodeURIComponent(filepath)}`);
     if (!res.ok) throw new Error("Could not load file content");
     const data = await res.json();
     activeFileContent = data.content;
@@ -348,7 +350,7 @@ async function handleSaveFile() {
   saveBtn.disabled = true;
 
   try {
-    const res = await fetch(`/api/file/${taskId}`, {
+    const res = await fetch(`${API_BASE}/api/file/${taskId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -385,7 +387,7 @@ async function handleSaveFile() {
 
 function handleExportZip() {
   if (!taskId) return;
-  window.location.href = `/api/export/${taskId}`;
+  window.location.href = `${API_BASE}/api/export/${taskId}`;
 }
 
 function updateTabs() {
@@ -433,7 +435,7 @@ async function renderContent() {
     markdownContent.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">Reading document...</div>`;
     
     try {
-      const res = await fetch(`/api/file/${taskId}?path=${encodeURIComponent(mdFile)}`);
+      const res = await fetch(`${API_BASE}/api/file/${taskId}?path=${encodeURIComponent(mdFile)}`);
       if (res.ok) {
         const data = await res.json();
         markdownContent.innerHTML = parseMarkdown(data.content);
