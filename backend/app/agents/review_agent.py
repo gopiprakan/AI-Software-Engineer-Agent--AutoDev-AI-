@@ -1,6 +1,6 @@
 import asyncio
-from agents.base_agent import BaseAgent
-from agents.templates import get_dynamic_project
+from app.agents.base_agent import BaseAgent
+from app.agents.templates import get_dynamic_project
 
 class ReviewAgent(BaseAgent):
     def __init__(self):

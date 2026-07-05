@@ -92,6 +92,7 @@ function handleProviderChange() {
   
   if (provider === "gemini") modelInput.placeholder = "gemini-3.5-flash";
   else if (provider === "openai") modelInput.placeholder = "gpt-4o";
+  else if (provider === "groq") modelInput.placeholder = "llama3-70b-8192";
   else if (provider === "ollama") modelInput.placeholder = "llama3";
 }
 

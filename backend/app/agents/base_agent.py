@@ -40,9 +40,9 @@ class BaseAgent:
 
         if not api_key:
             import os
-            api_key = os.environ.get("API_KEY") or os.environ.get("GEMINI_API_KEY") or ""
+            api_key = os.environ.get("API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY") or ""
 
-        if provider == "simulated" or (not api_key and provider in ["openai", "gemini"]):
+        if provider == "simulated" or (not api_key and provider in ["openai", "gemini", "groq"]):
             self.log("Running in simulated mode (no API key or simulated provider selected).")
             return ""
 
@@ -73,6 +73,26 @@ class BaseAgent:
                 elif provider == "openai":
                     # Call OpenAI API
                     url = "https://api.openai.com/v1/chat/completions"
+                    headers = {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": 0.2
+                    }
+                    response = await client.post(url, json=payload, headers=headers)
+                    response.raise_for_status()
+                    data = response.json()
+                    return data["choices"][0]["message"]["content"]
+
+                elif provider == "groq":
+                    # Call Groq API
+                    url = "https://api.groq.com/openai/v1/chat/completions"
                     headers = {
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"

@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-from agents.base_agent import BaseAgent
-from agents.templates import get_dynamic_project
+from app.agents.base_agent import BaseAgent
+from app.agents.templates import get_dynamic_project
 
 class BackendAgent(BaseAgent):
     def __init__(self):
