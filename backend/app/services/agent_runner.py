@@ -6,7 +6,11 @@ from app.agents import (
     PlannerAgent,
     DatabaseAgent,
     BackendAgent,
-    FrontendAgent
+    FrontendAgent,
+    ReviewAgent,
+    TestingAgent,
+    DocumentationAgent,
+    DeploymentAgent
 )
 
 class AgentRunner:
@@ -45,7 +49,11 @@ class AgentRunner:
             PlannerAgent(),
             DatabaseAgent(),
             BackendAgent(),
-            FrontendAgent()
+            FrontendAgent(),
+            ReviewAgent(),
+            TestingAgent(),
+            DocumentationAgent(),
+            DeploymentAgent()
         ]
 
         # Initial state passed through pipeline

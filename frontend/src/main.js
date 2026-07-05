@@ -9,7 +9,8 @@ const AGENT_PIPELINE = [
   { name: "Frontend Generator", role: "Frontend Dev", icon: "file-code", color: "#ea580c" },
   { name: "Code Reviewer", role: "Security Auditor", icon: "shield-alert", color: "#ef4444" },
   { name: "Test Generator", role: "QA Engineer", icon: "check-circle", color: "#a3e635" },
-  { name: "Documentation Generator", role: "Technical Writer", icon: "book-open", color: "#f59e0b" }
+  { name: "Documentation Generator", role: "Technical Writer", icon: "book-open", color: "#f59e0b" },
+  { name: "Deployment Configurator", role: "DevOps Engineer", icon: "server", color: "#3b82f6" }
 ];
 
 // State variables
@@ -416,6 +417,7 @@ function getTabMarkdownFile() {
   if (activeTab === "plan") return filesList.find(f => f === "project_plan.md");
   if (activeTab === "database") return filesList.find(f => f === "database_schema.sql");
   if (activeTab === "review") return filesList.find(f => f === "code_review.md");
+  if (activeTab === "deploy") return filesList.find(f => f === "deploy.md");
   return "";
 }
 
@@ -461,7 +463,7 @@ async function renderContent() {
 function parseMarkdown(md) {
   if (!md) return `<div style="color: #64748b;">Awaiting Agent output...</div>`;
 
-  const lines = md.split('\\n');
+  const lines = md.split('\n');
   let inTable = false;
   let tableHeaders = [];
   let tableRows = [];
@@ -473,7 +475,7 @@ function parseMarkdown(md) {
   let html = "";
 
   const processInlineBold = (text) => {
-    return text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong style="color: #fff">$1</strong>');
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff">$1</strong>');
   };
 
   const flushList = () => {
@@ -505,7 +507,7 @@ function parseMarkdown(md) {
 
   const flushCode = () => {
     if (codeBlock.length > 0) {
-      const code = codeBlock.join('\\n').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const code = codeBlock.join('\n').replace(/</g, "&lt;").replace(/>/g, "&gt;");
       html += `<pre style="background: #050811; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 16px; margin: 16px 0; overflow-x: auto;">`;
       html += `<code style="font-family: 'Fira Code', monospace; color: #38bdf8; font-size: 0.85rem;">${code}</code></pre>`;
       codeBlock = [];

@@ -7,4 +7,5 @@ from app.agents.frontend_agent import FrontendAgent
 from app.agents.review_agent import ReviewAgent
 from app.agents.testing_agent import TestingAgent
 from app.agents.documentation_agent import DocumentationAgent
+from app.agents.deployment_agent import DeploymentAgent
 from app.agents.templates import get_dynamic_project

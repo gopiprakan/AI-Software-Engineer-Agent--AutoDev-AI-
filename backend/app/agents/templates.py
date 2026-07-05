@@ -716,6 +716,96 @@ Base URL: `http://localhost:8000/api`
 5. Open browser at: `http://localhost:3000`
 """
 
+    raw_dockerfile = """# Dockerfile for {title}
+# Multistage build for backend and frontend production deployment
+
+# --- Build Frontend ---
+FROM node:18-alpine AS frontend-builder
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# --- Build Backend & Run ---
+FROM python:3.10-slim
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend files
+COPY backend/ ./backend
+
+# Copy static frontend build files to serve from FastAPI if needed
+COPY --from=frontend-builder /frontend/dist ./static
+
+EXPOSE 8000
+ENV PORT=8000
+
+CMD ["python", "backend/main.py"]
+"""
+
+    raw_deploy_guide = """# Deployment Guide: {title}
+
+This document details the configuration and options for hosting and running the **{title}** application in a production environment.
+
+## 1. Architecture Overview
+The application is structured into:
+- **Client Tier**: A Vite+React frontend container optimized for static hosting (CDN, Vercel, Netlify) or served as static assets from the FastAPI server.
+- **API Tier**: A Python FastAPI server providing performant RESTful services, database connections, and business logic routing.
+- **Data Tier**: Relational SQLite database engine (embedded) or upgraded PostgreSQL database backend configurations.
+
+## 2. Local Container Execution (Docker)
+Ensure Docker is installed on your local host environment.
+
+1. **Build the container image**:
+   ```bash
+   docker build -t {slug}-app -f Dockerfile .
+   ```
+
+2. **Run the container locally**:
+   ```bash
+   docker run -p 8000:8000 -d --name {slug}-instance {slug}-app
+   ```
+   *Access the backend server API at `http://localhost:8000` and the app logs in Docker.*
+
+3. **Multi-Container Deployment (Docker Compose)**:
+   A `docker-compose.yml` can orchestrate the stack:
+   ```yaml
+   version: '3.8'
+   services:
+     backend:
+       build:
+         context: .
+         dockerfile: Dockerfile
+       ports:
+         - "8000:8000"
+       environment:
+         - DATABASE_URL=sqlite:///./{slug}.db
+   ```
+
+## 3. Cloud Deployment Instructions
+### Render (Recommended)
+1. **Web Service**: Deploy the backend directory.
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `python main.py` or `uvicorn main:app --host 0.0.0.0 --port $PORT`
+2. **Static Site**: Deploy the frontend directory.
+   - Build Command: `npm run build`
+   - Publish Directory: `dist`
+   - Environment Variable: Set `VITE_API_URL` to your Render backend URL.
+
+### Vercel / Netlify (Frontend Only)
+1. Link your git repository to Vercel/Netlify.
+2. Select the `frontend` subfolder as root.
+3. Configure `VITE_API_URL` environment variables pointing to your API server.
+"""
+
     # Do the placeholder replacements
     requirements = replace_placeholders(raw_requirements, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
     plan = replace_placeholders(raw_plan, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
@@ -740,12 +830,17 @@ Base URL: `http://localhost:8000/api`
     readme = replace_placeholders(raw_readme, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
     apidocs = replace_placeholders(raw_apidocs, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
     install = replace_placeholders(raw_install, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    
+    dockerfile = replace_placeholders(raw_dockerfile, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
+    deploy_guide = replace_placeholders(raw_deploy_guide, title, slug, entity, entity_cap, entity_plural, entity_plural_cap)
 
     hms = {
         "title": title,
         "requirements": requirements,
         "plan": plan,
         "database": database,
+        "dockerfile": dockerfile,
+        "deploy_guide": deploy_guide,
         "backend": {
             f"backend/app/core/config.py": backend_config,
             f"backend/app/database/connection.py": backend_conn,
