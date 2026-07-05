@@ -157,12 +157,16 @@ async function handleDeployAgents() {
       })
     });
 
-    if (!response.ok) {
-      const errData = await response.json();
-      throw new Error(errData.detail || "Server failed to initiate generation");
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      throw new Error("Could not connect to the backend server. Is the Python FastAPI server running on port 8000?");
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || "Server failed to initiate generation");
+    }
     taskId = data.task_id;
     startPolling(taskId);
   } catch (err) {
