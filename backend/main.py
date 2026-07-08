@@ -39,10 +39,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-from app.database import engine
-from app import models
-models.Base.metadata.create_all(bind=engine)
-
 
 # Enable CORS for frontend development server
 app.add_middleware(

@@ -2,11 +2,11 @@ import io
 import zipfile
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query, Depends
 from fastapi.responses import StreamingResponse
+from pymongo.database import Database
 from pydantic import BaseModel
 from typing import Dict, Any, List
-from sqlalchemy.orm import Session
 from app.services.agent_runner import AgentRunner
-from app import models, database, security
+from app import database, security
 import uuid
 
 router = APIRouter(prefix="/api")
@@ -15,7 +15,7 @@ runner = AgentRunner()
 class GenerateRequest(BaseModel):
     prompt: str
     settings: Dict[str, Any]
-    agent_config_id: int
+    agent_config_id: str
 
 class SaveFileRequest(BaseModel):
     path: str
@@ -23,43 +23,41 @@ class SaveFileRequest(BaseModel):
 
 class BuildLogResponse(BaseModel):
     id: str
-    agent_config_id: int
+    agent_config_id: str
     status: str
     error: str = None
     
-    class Config:
-        orm_mode = True
-
 @router.post("/generate", response_model=BuildLogResponse)
-def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
+def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks, db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
     
-    agent = db.query(models.AgentConfig).filter(models.AgentConfig.id == req.agent_config_id, models.AgentConfig.user_id == current_user.id).first()
+    agent = db.agents.find_one({"id": req.agent_config_id, "user_id": current_user["id"]})
     if not agent:
         raise HTTPException(status_code=404, detail="Agent configuration not found")
 
-    build_log = models.BuildLog(
-        agent_config_id=agent.id,
-        status="pending",
-        logs=["[System] Task created"],
-        files_json={}
-    )
-    db.add(build_log)
-    db.commit()
-    db.refresh(build_log)
+    build_log_id = str(uuid.uuid4())
+    build_log = {
+        "id": build_log_id,
+        "agent_config_id": agent["id"],
+        "status": "pending",
+        "logs": ["[System] Task created"],
+        "files_json": {},
+        "error": None
+    }
+    db.build_logs.insert_one(build_log)
     
-    background_tasks.add_task(runner.run_task, build_log.id, req.prompt, req.settings)
+    background_tasks.add_task(runner.run_task, build_log_id, req.prompt, req.settings)
     return build_log
 
 @router.get("/status/{task_id}")
-def get_task_status(task_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
-    build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
+def get_task_status(task_id: str, db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    build = db.build_logs.find_one({"id": task_id})
     if not build:
         raise HTTPException(status_code=404, detail="Task not found")
         
     # Check if the build belongs to the user
-    agent = db.query(models.AgentConfig).filter(models.AgentConfig.id == build.agent_config_id, models.AgentConfig.user_id == current_user.id).first()
+    agent = db.agents.find_one({"id": build["agent_config_id"], "user_id": current_user["id"]})
     if not agent:
         raise HTTPException(status_code=403, detail="Not authorized to view this task")
 
@@ -78,28 +76,28 @@ def get_task_status(task_id: str, db: Session = Depends(database.get_db), curren
         # If not in memory, fetch from DB
         return {
             "id": task_id,
-            "status": build.status,
+            "status": build.get("status", "completed"),
             "current_agent_index": 9, # Assume completed
-            "logs": build.logs,
-            "files": list(build.files_json.keys()),
-            "error": build.error
+            "logs": build.get("logs", []),
+            "files": list(build.get("files_json", {}).keys()),
+            "error": build.get("error")
         }
 
 @router.get("/dashboard/builds", response_model=List[BuildLogResponse])
-def get_dashboard_builds(db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
-    agents = db.query(models.AgentConfig).filter(models.AgentConfig.user_id == current_user.id).all()
-    agent_ids = [a.id for a in agents]
-    builds = db.query(models.BuildLog).filter(models.BuildLog.agent_config_id.in_(agent_ids)).order_by(models.BuildLog.id.desc()).all()
+def get_dashboard_builds(db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    agents = list(db.agents.find({"user_id": current_user["id"]}))
+    agent_ids = [a["id"] for a in agents]
+    builds = list(db.build_logs.find({"agent_config_id": {"$in": agent_ids}}).sort("_id", -1))
     return builds
 
 @router.get("/file/{task_id}")
-def get_file_content(task_id: str, path: str = Query(..., description="File path to read"), db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
-    build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
+def get_file_content(task_id: str, path: str = Query(..., description="File path to read"), db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    build = db.build_logs.find_one({"id": task_id})
     if not build:
         raise HTTPException(status_code=404, detail="Task not found")
         
     task_in_memory = runner.get_task(task_id)
-    files = task_in_memory["files"] if task_in_memory else build.files_json
+    files = task_in_memory["files"] if task_in_memory else build.get("files_json", {})
 
     if path not in files:
         raise HTTPException(status_code=404, detail="File not found in task workspace")
@@ -107,8 +105,8 @@ def get_file_content(task_id: str, path: str = Query(..., description="File path
     return {"path": path, "content": files[path]}
 
 @router.put("/file/{task_id}")
-def save_file_content(task_id: str, req: SaveFileRequest, db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
-    build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
+def save_file_content(task_id: str, req: SaveFileRequest, db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    build = db.build_logs.find_one({"id": task_id})
     if not build:
         raise HTTPException(status_code=404, detail="Task not found")
         
@@ -117,24 +115,26 @@ def save_file_content(task_id: str, req: SaveFileRequest, db: Session = Depends(
         task_in_memory["files"][req.path] = req.content
         task_in_memory["logs"].append(f"[System] File '{req.path}' was edited and saved by user.")
     
-    files = dict(build.files_json)
+    files = dict(build.get("files_json", {}))
     files[req.path] = req.content
-    build.files_json = files
-    logs = list(build.logs)
+    logs = list(build.get("logs", []))
     logs.append(f"[System] File '{req.path}' was edited and saved by user.")
-    build.logs = logs
-    db.commit()
+    
+    db.build_logs.update_one(
+        {"id": task_id},
+        {"$set": {"files_json": files, "logs": logs}}
+    )
 
     return {"message": "File updated successfully"}
 
 @router.get("/export/{task_id}")
-def export_workspace(task_id: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(security.get_current_user)):
-    build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
+def export_workspace(task_id: str, db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    build = db.build_logs.find_one({"id": task_id})
     if not build:
         raise HTTPException(status_code=404, detail="Task not found")
         
     task_in_memory = runner.get_task(task_id)
-    files = task_in_memory["files"] if task_in_memory else build.files_json
+    files = task_in_memory["files"] if task_in_memory else build.get("files_json", {})
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
