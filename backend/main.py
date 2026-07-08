@@ -29,12 +29,20 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
+from app.api.auth import router as auth_router
+from app.api.keys import router as keys_router
+from app.api.agents import router as agents_router
 
 app = FastAPI(
     title="AutoDev AI Multi-Agent Platform",
     description="Backend orchestration services for multi-agent software development pipelines.",
     version="1.0.0"
 )
+
+from app.database import engine
+from app import models
+models.Base.metadata.create_all(bind=engine)
+
 
 # Enable CORS for frontend development server
 app.add_middleware(
@@ -47,6 +55,9 @@ app.add_middleware(
 
 # Include core routes
 app.include_router(api_router)
+app.include_router(auth_router)
+app.include_router(keys_router)
+app.include_router(agents_router)
 
 @app.get("/")
 def home():

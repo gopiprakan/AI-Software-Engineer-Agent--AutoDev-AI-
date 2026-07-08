@@ -20,28 +20,20 @@ class AgentRunner:
     def get_task(self, task_id: str) -> Dict[str, Any]:
         return self.tasks.get(task_id)
 
-    def create_task(self, prompt: str, settings: Dict[str, Any]) -> str:
-        task_id = str(uuid.uuid4())
+    async def run_task(self, task_id: str, prompt: str, settings: Dict[str, Any]):
+        # Initialize memory state
         self.tasks[task_id] = {
             "id": task_id,
             "prompt": prompt,
             "settings": settings,
-            "status": "pending",
+            "status": "running",
             "current_agent_index": -1,
             "logs": [],
             "files": {},
             "error": None
         }
-        return task_id
-
-    async def run_task(self, task_id: str):
-        task = self.get_task(task_id)
-        if not task:
-            return
-
-        task["status"] = "running"
-        prompt = task["prompt"]
-        settings = task["settings"]
+        
+        task = self.tasks[task_id]
         
         # Instantiate agents in order
         pipeline = [
@@ -99,3 +91,19 @@ class AgentRunner:
             task["error"] = str(e)
             task["logs"].append(f"[System Error] Pipeline execution failed: {str(e)}")
             print(f"Error in runner: {e}")
+        
+        # Sync final state to DB
+        from app.database import SessionLocal
+        from app import models
+        db = SessionLocal()
+        try:
+            build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
+            if build:
+                build.status = task["status"]
+                build.logs = list(task["logs"])
+                build.files_json = dict(task["files"])
+                build.error = task["error"]
+                db.commit()
+        finally:
+            db.close()
+

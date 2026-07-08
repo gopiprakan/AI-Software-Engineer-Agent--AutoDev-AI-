@@ -1,6 +1,256 @@
 // Initialize Lucide icons
 lucide.createIcons();
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+let authToken = localStorage.getItem("authToken");
+let currentUser = null;
+
+// Routing logic
+const views = {
+  login: document.getElementById("viewLogin"),
+  dashboard: document.getElementById("viewDashboard"),
+  wizard: document.getElementById("viewWizard"),
+  vault: document.getElementById("viewVault"),
+  ide: document.getElementById("viewIDE"),
+};
+
+const appHeader = document.getElementById("appHeader");
+
+function showView(viewId) {
+  Object.values(views).forEach(v => { if (v) v.style.display = "none"; });
+  if (views[viewId]) views[viewId].style.display = viewId === "login" ? "flex" : "block";
+  
+  if (viewId === "login") {
+    appHeader.style.display = "none";
+  } else {
+    appHeader.style.display = "flex";
+  }
+  
+  if (viewId === "dashboard") loadDashboard();
+  if (viewId === "vault") loadVault();
+}
+
+function handleRoute() {
+  const hash = window.location.hash.replace("#", "") || "dashboard";
+  
+  if (!authToken) {
+    showView("login");
+    return;
+  }
+  
+  if (hash.startsWith("ide/")) {
+    const configId = hash.split("/")[1];
+    showView("ide");
+    initIDE(configId);
+  } else {
+    showView(hash);
+  }
+}
+
+window.addEventListener("hashchange", handleRoute);
+
+// API Helper
+async function fetchAPI(endpoint, options = {}) {
+  const headers = { ...options.headers };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  if (options.body && typeof options.body === "object" && !(options.body instanceof URLSearchParams)) {
+    options.body = JSON.stringify(options.body);
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
+function logout() {
+  authToken = null;
+  localStorage.removeItem("authToken");
+  window.location.hash = "";
+  handleRoute();
+}
+
+document.getElementById("logoutBtn")?.addEventListener("click", logout);
+
+// --- Auth View ---
+const loginUsernameInput = document.getElementById("loginUsername");
+const loginPasswordInput = document.getElementById("loginPassword");
+const loginError = document.getElementById("loginError");
+
+document.getElementById("loginBtn")?.addEventListener("click", async () => {
+  const params = new URLSearchParams();
+  params.append("username", loginUsernameInput.value);
+  params.append("password", loginPasswordInput.value);
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/token`, {
+      method: "POST",
+      body: params,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
+    });
+    if (!res.ok) throw new Error("Invalid credentials");
+    const data = await res.json();
+    authToken = data.access_token;
+    localStorage.setItem("authToken", authToken);
+    loginError.style.display = "none";
+    window.location.hash = "#dashboard";
+  } catch (e) {
+    loginError.innerText = e.message;
+    loginError.style.display = "block";
+  }
+});
+
+document.getElementById("registerBtn")?.addEventListener("click", async () => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+      method: "POST",
+      body: JSON.stringify({
+        username: loginUsernameInput.value,
+        password: loginPasswordInput.value
+      }),
+      headers: { "Content-Type": "application/json" }
+    });
+    if (!res.ok) throw new Error("Registration failed. Username may exist.");
+    document.getElementById("loginBtn").click(); // Auto login
+  } catch (e) {
+    loginError.innerText = e.message;
+    loginError.style.display = "block";
+  }
+});
+
+// --- Dashboard View ---
+async function loadDashboard() {
+  const buildsList = document.getElementById("buildsList");
+  buildsList.innerHTML = "Loading...";
+  try {
+    const [buildsRes, agentsRes] = await Promise.all([
+      fetchAPI("/api/dashboard/builds"),
+      fetchAPI("/api/agents/")
+    ]);
+    const builds = await buildsRes.json();
+    const agents = await agentsRes.json();
+    
+    const agentMap = {};
+    agents.forEach(a => agentMap[a.id] = a.name);
+
+    if (builds.length === 0 && agents.length === 0) {
+      buildsList.innerHTML = `<p style="color: var(--text-muted);">No agents or builds found. Create a <a href="#wizard" style="color: var(--color-primary);">new agent</a> to get started!</p>`;
+      return;
+    }
+    
+    let html = `<h3>Your Agents</h3><div style="display:flex; gap:10px; flex-wrap: wrap; margin-bottom: 20px;">`;
+    agents.forEach(a => {
+      html += `<div class="build-card" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+        <strong>${a.name}</strong>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">${a.category} | ${a.api_selections.provider}</span>
+        <button class="btn btn-primary" onclick="window.location.hash='#ide/${a.id}'">Launch IDE</button>
+      </div>`;
+    });
+    html += `</div><h3>Recent Builds</h3>`;
+    
+    if (builds.length === 0) {
+      html += `<p style="color: var(--text-muted);">No builds yet.</p>`;
+    } else {
+      builds.forEach(b => {
+        html += `<div class="build-card">
+          <div>
+            <strong>Build ID:</strong> ${b.id.substring(0,8)}...<br>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Agent: ${agentMap[b.agent_config_id] || "Unknown"}</span>
+          </div>
+          <div>
+            <span style="margin-right: 15px; color: ${b.status === 'completed' ? 'var(--color-success)' : 'var(--text-muted)'}">${b.status.toUpperCase()}</span>
+          </div>
+        </div>`;
+      });
+    }
+    buildsList.innerHTML = html;
+  } catch (e) {
+    buildsList.innerHTML = `<p style="color: #ef4444;">Error loading dashboard: ${e.message}</p>`;
+  }
+}
+
+// --- API Vault View ---
+async function loadVault() {
+  const keysList = document.getElementById("keysList");
+  keysList.innerHTML = "Loading...";
+  try {
+    const res = await fetchAPI("/api/keys/");
+    const keys = await res.json();
+    if (keys.length === 0) {
+      keysList.innerHTML = `<p style="color: var(--text-muted);">No API keys saved.</p>`;
+      return;
+    }
+    let html = "";
+    keys.forEach(k => {
+      html += `<div class="build-card">
+        <strong>${k.category.toUpperCase()} Key</strong>
+        <button class="btn btn-secondary" onclick="deleteKey(${k.id})">Delete</button>
+      </div>`;
+    });
+    keysList.innerHTML = html;
+  } catch (e) {
+    keysList.innerHTML = `<p style="color: #ef4444;">Error loading keys</p>`;
+  }
+}
+
+document.getElementById("addKeyBtn")?.addEventListener("click", async () => {
+  const cat = document.getElementById("newKeyCategory").value;
+  const val = document.getElementById("newKeyValue").value;
+  if (!val) return;
+  try {
+    await fetchAPI("/api/keys/", {
+      method: "POST",
+      body: { category: cat, key_value: val }
+    });
+    document.getElementById("newKeyValue").value = "";
+    loadVault();
+  } catch (e) {
+    alert("Error saving key");
+  }
+});
+
+window.deleteKey = async (id) => {
+  if (!confirm("Delete this key?")) return;
+  try {
+    await fetchAPI(`/api/keys/${id}`, { method: "DELETE" });
+    loadVault();
+  } catch (e) {
+    alert("Error deleting key");
+  }
+};
+
+// --- Wizard View ---
+document.getElementById("createAgentBtn")?.addEventListener("click", async () => {
+  const name = document.getElementById("wizardName").value;
+  const cat = document.getElementById("wizardCategory").value;
+  const provider = document.getElementById("wizardProvider").value;
+  const behavior = document.getElementById("wizardBehavior").value;
+  
+  if (!name) { alert("Name is required"); return; }
+  
+  try {
+    const res = await fetchAPI("/api/agents/", {
+      method: "POST",
+      body: {
+        name: name,
+        category: cat,
+        api_selections: { provider: provider },
+        behavior: behavior
+      }
+    });
+    const agent = await res.json();
+    window.location.hash = `#dashboard`;
+  } catch (e) {
+    alert("Error creating agent: " + e.message);
+  }
+});
+
+
+// --- IDE / Tracker Logic ---
+// We adapt the existing logic into a scoped function or vars
 const AGENT_PIPELINE = [
   { name: "Requirement Analyzer", role: "Business Analyst", icon: "file-text", color: "#f97316" },
   { name: "Project Planner", role: "Software Architect", icon: "help-circle", color: "#ca8a04" },
@@ -13,95 +263,44 @@ const AGENT_PIPELINE = [
   { name: "Deployment Configurator", role: "DevOps Engineer", icon: "server", color: "#3b82f6" }
 ];
 
-// State variables
-let taskId = "";
-let taskStatus = "idle";
-let currentAgentIndex = -1;
-let logs = [];
-let filesList = [];
-let activeTab = "requirements";
-let activeFile = "";
-let activeFileContent = "";
-let originalFileContent = "";
-let saveStatus = "";
-let pollingInterval = null;
+let currentAgentConfigId = null;
+let currentTaskId = null; // BuildLog ID
+let ideState = {
+  status: "idle", currentAgentIndex: -1, logs: [], filesList: [], activeTab: "requirements", activeFile: "",
+  activeFileContent: "", originalFileContent: ""
+};
+let idePolling = null;
 
-// DOM Elements
-const providerSelect = document.getElementById("provider");
-const apiKeyContainer = document.getElementById("apiKeyContainer");
-const apiKeyInput = document.getElementById("apiKey");
-const apiUrlContainer = document.getElementById("apiUrlContainer");
-const apiUrlInput = document.getElementById("apiUrl");
-const modelContainer = document.getElementById("modelContainer");
-const modelInput = document.getElementById("model");
-const deployBtn = document.getElementById("deployBtn");
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-const promptInput = document.getElementById("promptInput");
-const agentPipelineContainer = document.getElementById("agentPipeline");
-const terminalConsole = document.getElementById("terminalConsole");
-const fileExplorer = document.getElementById("fileExplorer");
-const exportZipBtn = document.getElementById("exportZipBtn");
-const logStatusText = document.getElementById("logStatusText");
-
-const workspaceTabs = document.querySelectorAll(".workspace-tab");
-const editorTab = document.getElementById("editorTab");
-const editorTabName = document.getElementById("editorTabName");
-const editorView = document.getElementById("editorView");
-const markdownView = document.getElementById("markdownView");
-const emptyView = document.getElementById("emptyView");
-const markdownContent = document.getElementById("markdownContent");
-const codeTextarea = document.getElementById("codeTextarea");
-const saveBtn = document.getElementById("saveBtn");
-const saveBtnText = document.getElementById("saveBtnText");
-const discardBtn = document.getElementById("discardBtn");
-
-// Event Listeners
-providerSelect.addEventListener("change", handleProviderChange);
-deployBtn.addEventListener("click", handleDeployAgents);
-exportZipBtn.addEventListener("click", handleExportZip);
-saveBtn.addEventListener("click", handleSaveFile);
-discardBtn.addEventListener("click", () => {
-  activeFileContent = originalFileContent;
-  codeTextarea.value = activeFileContent;
-  updateEditorActions();
-});
-codeTextarea.addEventListener("input", (e) => {
-  activeFileContent = e.target.value;
-  updateEditorActions();
-});
-
-document.querySelectorAll(".template-btn").forEach(btn => {
-  btn.addEventListener("click", (e) => {
-    promptInput.value = e.target.getAttribute("data-prompt");
-  });
-});
-
-workspaceTabs.forEach(tab => {
-  tab.addEventListener("click", (e) => {
-    activeTab = e.target.closest('.workspace-tab').getAttribute("data-tab");
-    updateTabs();
-    renderContent();
-  });
-});
-
-function handleProviderChange() {
-  const provider = providerSelect.value;
-  apiKeyContainer.style.display = (provider !== "simulated" && provider !== "ollama") ? "flex" : "none";
-  apiUrlContainer.style.display = (provider === "ollama") ? "flex" : "none";
-  modelContainer.style.display = (provider !== "simulated") ? "flex" : "none";
+async function initIDE(agentConfigId) {
+  currentAgentConfigId = agentConfigId;
+  currentTaskId = null;
+  ideState = { status: "idle", currentAgentIndex: -1, logs: [], filesList: [], activeTab: "requirements", activeFile: "" };
+  if (idePolling) clearInterval(idePolling);
   
-  if (provider === "gemini") modelInput.placeholder = "gemini-3.5-flash";
-  else if (provider === "openai") modelInput.placeholder = "gpt-4o";
-  else if (provider === "groq") modelInput.placeholder = "llama3-70b-8192";
-  else if (provider === "ollama") modelInput.placeholder = "llama3";
+  document.getElementById("ideBuildStatus").innerText = "Status: Ready";
+  
+  // Fetch agent info
+  try {
+    const res = await fetchAPI("/api/agents/");
+    const agents = await res.json();
+    const agent = agents.find(a => a.id == agentConfigId);
+    if (agent) {
+      document.getElementById("ideAgentName").innerText = agent.name;
+    }
+  } catch (e) { }
+
+  renderAgentPipeline();
+  renderLogs();
+  renderFileExplorer();
+  renderContent();
 }
 
 function renderAgentPipeline() {
-  agentPipelineContainer.innerHTML = "";
+  const container = document.getElementById("agentPipeline");
+  container.innerHTML = "";
   AGENT_PIPELINE.forEach((agent, index) => {
-    const isActive = taskStatus === "running" && currentAgentIndex === index;
-    const isCompleted = currentAgentIndex > index || taskStatus === "completed";
+    const isActive = ideState.status === "running" && ideState.currentAgentIndex === index;
+    const isCompleted = ideState.currentAgentIndex > index || ideState.status === "completed";
     let nodeClass = "agent-node";
     if (isActive) nodeClass += " active";
     if (isCompleted) nodeClass += " completed";
@@ -121,116 +320,77 @@ function renderAgentPipeline() {
       </div>
       <i data-lucide="${agent.icon}" style="width: 18px; height: 18px; color: ${color};"></i>
     `;
-    agentPipelineContainer.appendChild(el);
+    container.appendChild(el);
   });
   lucide.createIcons();
 }
 
-async function handleDeployAgents() {
-  if (taskStatus === "running") return;
-  
-  taskStatus = "running";
-  currentAgentIndex = 0;
-  logs = ["[System] Initializing AutoDev AI pipeline..."];
-  filesList = [];
-  taskId = "";
-  activeFile = "";
-  activeFileContent = "";
-  
-  deployBtn.style.opacity = "0.6";
-  logStatusText.innerText = "Compiling...";
-  logStatusText.style.color = "var(--color-primary)";
-  
+document.getElementById("deployBtn")?.addEventListener("click", async () => {
+  if (ideState.status === "running") return;
+  ideState.status = "running";
+  ideState.currentAgentIndex = 0;
+  ideState.logs = ["[System] Initiating generation..."];
+  ideState.filesList = [];
+  document.getElementById("ideBuildStatus").innerText = "Status: Running...";
   renderAgentPipeline();
   renderLogs();
-  renderFileExplorer();
-  renderContent();
-
-  try {
-    const response = await fetch(`${API_BASE}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: promptInput.value,
-        settings: {
-          provider: providerSelect.value,
-          apiKey: apiKeyInput.value,
-          model: modelInput.value,
-          apiUrl: apiUrlInput.value
-        }
-      })
-    });
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (e) {
-      throw new Error("Could not connect to the backend server. Is the Python FastAPI server running on port 8000?");
-    }
-
-    if (!response.ok) {
-      throw new Error(data.detail || "Server failed to initiate generation");
-    }
-    taskId = data.task_id;
-    startPolling(taskId);
-  } catch (err) {
-    taskStatus = "failed";
-    logs.push(`[System Error] Failed to launch backend agents: ${err.message}`);
-    logStatusText.innerText = "Failed";
-    logStatusText.style.color = "var(--text-muted)";
-    deployBtn.style.opacity = "1";
-    renderLogs();
-    renderAgentPipeline();
-  }
-}
-
-function startPolling(tid) {
-  if (pollingInterval) clearInterval(pollingInterval);
   
-  pollingInterval = setInterval(async () => {
+  try {
+    const res = await fetchAPI("/api/generate", {
+      method: "POST",
+      body: {
+        prompt: document.getElementById("promptInput").value,
+        settings: {},
+        agent_config_id: parseInt(currentAgentConfigId)
+      }
+    });
+    const data = await res.json();
+    currentTaskId = data.id;
+    startIdePolling();
+  } catch (e) {
+    ideState.status = "failed";
+    ideState.logs.push(`[System Error] ${e.message}`);
+    document.getElementById("ideBuildStatus").innerText = "Status: Failed";
+    renderLogs();
+  }
+});
+
+function startIdePolling() {
+  if (idePolling) clearInterval(idePolling);
+  idePolling = setInterval(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/status/${tid}`);
-      if (!res.ok) throw new Error("Status fetch error");
+      const res = await fetchAPI(`/api/status/${currentTaskId}`);
       const data = await res.json();
       
-      taskStatus = data.status;
-      currentAgentIndex = data.current_agent_index;
-      logs = data.logs;
-      filesList = data.files;
+      ideState.status = data.status;
+      ideState.currentAgentIndex = data.current_agent_index;
+      ideState.logs = data.logs;
+      ideState.filesList = data.files;
       
       renderAgentPipeline();
       renderLogs();
       renderFileExplorer();
       
-      if (taskStatus === "completed" || taskStatus === "failed") {
-        clearInterval(pollingInterval);
-        deployBtn.style.opacity = "1";
-        logStatusText.innerText = taskStatus === "completed" ? "Success" : "Failed";
-        logStatusText.style.color = taskStatus === "completed" ? "var(--color-success)" : "var(--text-muted)";
-        exportZipBtn.style.display = filesList.length > 0 ? "flex" : "none";
-        
-        if (filesList && filesList.length > 0 && !activeFile) {
-          handleFileSelect(filesList[0]);
-        } else {
-          renderContent();
-        }
-      } else {
+      document.getElementById("ideBuildStatus").innerText = `Status: ${ideState.status.toUpperCase()}`;
+      
+      if (ideState.status === "completed" || ideState.status === "failed") {
+        clearInterval(idePolling);
+        document.getElementById("exportZipBtn").style.display = ideState.filesList.length > 0 ? "flex" : "none";
         renderContent();
       }
-    } catch (err) {
-      console.error("Polling error:", err);
-    }
+    } catch (e) { }
   }, 1000);
 }
 
 function renderLogs() {
+  const terminalConsole = document.getElementById("terminalConsole");
   terminalConsole.innerHTML = "";
-  if (logs.length === 0) {
+  if (ideState.logs.length === 0) {
     terminalConsole.innerHTML = `<div class="terminal-line system">Ready. Start agent deployment to view logs.</div>`;
     return;
   }
   
-  logs.forEach(log => {
+  ideState.logs.forEach(log => {
     const div = document.createElement("div");
     let className = "terminal-line";
     if (log.startsWith("[System]")) className += " system";
@@ -241,218 +401,108 @@ function renderLogs() {
     div.innerText = log;
     terminalConsole.appendChild(div);
   });
-  
   terminalConsole.scrollTop = terminalConsole.scrollHeight;
 }
 
 function renderFileExplorer() {
-  if (filesList.length === 0) {
-    fileExplorer.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No generated files yet. Start the pipeline first!</div>`;
+  const fileExplorer = document.getElementById("fileExplorer");
+  if (ideState.filesList.length === 0) {
+    fileExplorer.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">No generated files yet.</div>`;
     return;
   }
 
-  const folders = {};
   const rootFiles = [];
-
-  filesList.forEach(file => {
-    const parts = file.split('/');
-    if (parts.length > 1) {
-      const folderName = parts[0];
-      if (!folders[folderName]) folders[folderName] = [];
-      folders[folderName].push(file);
-    } else {
-      rootFiles.push(file);
-    }
-  });
+  ideState.filesList.forEach(file => rootFiles.push(file));
 
   fileExplorer.innerHTML = "";
+  const listDiv = document.createElement("div");
+  listDiv.style.display = "flex";
+  listDiv.style.flexDirection = "column";
+  listDiv.style.gap = "2px";
   
-  const createItem = (filepath, name) => {
+  rootFiles.forEach(filepath => {
     const div = document.createElement("div");
-    div.className = `file-item ${activeFile === filepath ? 'active' : ''}`;
-    div.innerHTML = `<i data-lucide="file" style="width: 13px; height: 13px;"></i> ${name}`;
+    div.className = `file-item ${ideState.activeFile === filepath ? 'active' : ''}`;
+    div.innerHTML = `<i data-lucide="file" style="width: 13px; height: 13px;"></i> ${filepath}`;
     div.onclick = () => handleFileSelect(filepath);
-    return div;
-  };
-
-  Object.keys(folders).forEach(folder => {
-    const folderContainer = document.createElement("div");
-    folderContainer.style.marginBottom = "8px";
-    folderContainer.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; color: var(--color-secondary); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px;">
-        <i data-lucide="folder" style="width: 14px; height: 14px;"></i> ${folder}
-      </div>
-    `;
-    const listDiv = document.createElement("div");
-    listDiv.style.paddingLeft = "8px";
-    listDiv.style.display = "flex";
-    listDiv.style.flexDirection = "column";
-    listDiv.style.gap = "2px";
-    
-    folders[folder].forEach(filepath => {
-      listDiv.appendChild(createItem(filepath, filepath.substring(folder.length + 1)));
-    });
-    folderContainer.appendChild(listDiv);
-    fileExplorer.appendChild(folderContainer);
+    listDiv.appendChild(div);
   });
-
-  if (rootFiles.length > 0) {
-    const rootContainer = document.createElement("div");
-    rootContainer.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: bold; color: var(--color-secondary); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 8px;">
-        Root Files
-      </div>
-    `;
-    const listDiv = document.createElement("div");
-    listDiv.style.display = "flex";
-    listDiv.style.flexDirection = "column";
-    listDiv.style.gap = "2px";
-    rootFiles.forEach(filepath => {
-      listDiv.appendChild(createItem(filepath, filepath));
-    });
-    rootContainer.appendChild(listDiv);
-    fileExplorer.appendChild(rootContainer);
-  }
   
+  fileExplorer.appendChild(listDiv);
   lucide.createIcons();
 }
 
 async function handleFileSelect(filepath) {
-  activeFile = filepath;
-  saveStatus = "";
-  
-  document.querySelectorAll(".file-item").forEach(item => item.classList.remove("active"));
+  ideState.activeFile = filepath;
   renderFileExplorer();
   
-  activeTab = "editor";
+  ideState.activeTab = "editor";
   updateTabs();
   
   try {
-    const res = await fetch(`${API_BASE}/api/file/${taskId}?path=${encodeURIComponent(filepath)}`);
-    if (!res.ok) throw new Error("Could not load file content");
+    const res = await fetchAPI(`/api/file/${currentTaskId}?path=${encodeURIComponent(filepath)}`);
     const data = await res.json();
-    activeFileContent = data.content;
-    originalFileContent = data.content;
-    codeTextarea.value = activeFileContent;
-    updateEditorActions();
+    ideState.activeFileContent = data.content;
+    ideState.originalFileContent = data.content;
+    document.getElementById("codeTextarea").value = ideState.activeFileContent;
     renderContent();
-  } catch (err) {
-    console.error(err);
-    activeFileContent = `// Error loading file: ${err.message}`;
-    codeTextarea.value = activeFileContent;
-    updateEditorActions();
+  } catch (err) { }
+}
+
+document.querySelectorAll(".workspace-tab").forEach(tab => {
+  tab.addEventListener("click", (e) => {
+    ideState.activeTab = e.target.closest('.workspace-tab').getAttribute("data-tab");
+    updateTabs();
     renderContent();
-  }
-}
-
-async function handleSaveFile() {
-  if (!activeFile || !taskId) return;
-  saveStatus = "saving";
-  saveBtnText.innerText = "Saving...";
-  saveBtn.disabled = true;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/file/${taskId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: activeFile,
-        content: activeFileContent
-      })
-    });
-
-    if (!res.ok) throw new Error("Save error");
-    saveStatus = "saved";
-    saveBtnText.innerText = "Saved!";
-    saveBtn.style.background = "var(--color-success)";
-    originalFileContent = activeFileContent;
-    logs.push(`[System] Saved edits to '${activeFile}'`);
-    renderLogs();
-    
-    updateEditorActions();
-    setTimeout(() => {
-      saveStatus = "";
-      saveBtnText.innerText = "Save Changes";
-      saveBtn.style.background = "";
-      saveBtn.disabled = false;
-    }, 2000);
-  } catch (err) {
-    saveStatus = "error";
-    saveBtnText.innerText = "Error Saving";
-    setTimeout(() => {
-      saveStatus = "";
-      saveBtnText.innerText = "Save Changes";
-      saveBtn.disabled = false;
-    }, 2000);
-  }
-}
-
-function handleExportZip() {
-  if (!taskId) return;
-  window.location.href = `${API_BASE}/api/export/${taskId}`;
-}
+  });
+});
 
 function updateTabs() {
-  workspaceTabs.forEach(tab => {
-    if (tab.getAttribute("data-tab") === activeTab) tab.classList.add("active");
+  document.querySelectorAll(".workspace-tab").forEach(tab => {
+    if (tab.getAttribute("data-tab") === ideState.activeTab) tab.classList.add("active");
     else tab.classList.remove("active");
   });
   
-  if (activeFile) {
+  const editorTab = document.getElementById("editorTab");
+  if (ideState.activeFile) {
     editorTab.style.display = "flex";
-    editorTabName.innerText = activeFile.split('/').pop();
-    if (activeTab === "editor") {
-      editorTab.style.background = "#080c16";
-    } else {
-      editorTab.style.background = "rgba(255,255,255,0.01)";
-    }
+    document.getElementById("editorTabName").innerText = ideState.activeFile.split('/').pop();
+    editorTab.style.background = ideState.activeTab === "editor" ? "#080c16" : "rgba(255,255,255,0.01)";
   } else {
     editorTab.style.display = "none";
   }
 }
 
-function getTabMarkdownFile() {
-  if (!filesList || filesList.length === 0) return "";
-  if (activeTab === "requirements") return filesList.find(f => f === "requirements.md");
-  if (activeTab === "plan") return filesList.find(f => f === "project_plan.md");
-  if (activeTab === "database") return filesList.find(f => f === "database_schema.sql");
-  if (activeTab === "review") return filesList.find(f => f === "code_review.md");
-  if (activeTab === "deploy") return filesList.find(f => f === "deploy.md");
-  return "";
-}
-
 async function renderContent() {
-  if (activeTab === "editor" && activeFile) {
+  const editorView = document.getElementById("editorView");
+  const markdownView = document.getElementById("markdownView");
+  const emptyView = document.getElementById("emptyView");
+  const markdownContent = document.getElementById("markdownContent");
+
+  if (ideState.activeTab === "editor" && ideState.activeFile) {
     editorView.style.display = "flex";
     markdownView.style.display = "none";
     emptyView.style.display = "none";
     return;
   }
   
-  const mdFile = getTabMarkdownFile();
-  if (mdFile) {
+  let mdFile = "";
+  if (ideState.activeTab === "requirements") mdFile = "requirements.md";
+  if (ideState.activeTab === "plan") mdFile = "project_plan.md";
+  if (ideState.activeTab === "database") mdFile = "database_schema.sql";
+  if (ideState.activeTab === "review") mdFile = "code_review.md";
+  if (ideState.activeTab === "deploy") mdFile = "deploy.md";
+  
+  if (ideState.filesList.includes(mdFile)) {
     editorView.style.display = "none";
     markdownView.style.display = "block";
     emptyView.style.display = "none";
-    
-    markdownContent.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">Reading document...</div>`;
     
     try {
-      const res = await fetch(`${API_BASE}/api/file/${taskId}?path=${encodeURIComponent(mdFile)}`);
-      if (res.ok) {
-        const data = await res.json();
-        markdownContent.innerHTML = parseMarkdown(data.content);
-      } else {
-        markdownContent.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">Failed to read file.</div>`;
-      }
-    } catch (e) {
-      markdownContent.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">Failed to read file.</div>`;
-    }
-  } else if (filesList.length > 0) {
-    editorView.style.display = "none";
-    markdownView.style.display = "block";
-    emptyView.style.display = "none";
-    markdownContent.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">Awaiting Agent output for this section...</div>`;
+      const res = await fetchAPI(`/api/file/${currentTaskId}?path=${encodeURIComponent(mdFile)}`);
+      const data = await res.json();
+      markdownContent.innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Inter';">${data.content}</pre>`; // Simplified parsing for now
+    } catch (e) { }
   } else {
     editorView.style.display = "none";
     markdownView.style.display = "none";
@@ -460,115 +510,21 @@ async function renderContent() {
   }
 }
 
-function parseMarkdown(md) {
-  if (!md) return `<div style="color: #64748b;">Awaiting Agent output...</div>`;
+document.getElementById("exportZipBtn")?.addEventListener("click", () => {
+  if (currentTaskId && authToken) {
+    // Basic redirect won't have auth headers, we should use a query param or fetch as blob.
+    // For simplicity, we can fetch as blob and download it.
+    fetch(`${API_BASE}/api/export/${currentTaskId}`, {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    }).then(res => res.blob()).then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `autodev_${currentTaskId}.zip`;
+      a.click();
+    });
+  }
+});
 
-  const lines = md.split('\n');
-  let inTable = false;
-  let tableHeaders = [];
-  let tableRows = [];
-  let listItems = [];
-  let inList = false;
-  let inCode = false;
-  let codeBlock = [];
-  
-  let html = "";
-
-  const processInlineBold = (text) => {
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff">$1</strong>');
-  };
-
-  const flushList = () => {
-    if (listItems.length > 0) {
-      html += `<ul style="margin-left: 24px; margin-bottom: 16px;">`;
-      listItems.forEach(item => html += `<li style="margin-bottom: 4px;">${item}</li>`);
-      html += `</ul>`;
-      listItems = [];
-      inList = false;
-    }
-  };
-
-  const flushTable = () => {
-    if (tableHeaders.length > 0 || tableRows.length > 0) {
-      html += `<table style="width: 100%; border-collapse: collapse; margin: 16px 0;"><thead><tr style="background: rgba(255,255,255,0.03);">`;
-      tableHeaders.forEach(th => html += `<th style="border: 1px solid rgba(255,255,255,0.07); padding: 10px; text-align: left;">${th}</th>`);
-      html += `</tr></thead><tbody>`;
-      tableRows.forEach(row => {
-        html += `<tr>`;
-        row.forEach(td => html += `<td style="border: 1px solid rgba(255,255,255,0.07); padding: 10px;">${td}</td>`);
-        html += `</tr>`;
-      });
-      html += `</tbody></table>`;
-      tableHeaders = [];
-      tableRows = [];
-      inTable = false;
-    }
-  };
-
-  const flushCode = () => {
-    if (codeBlock.length > 0) {
-      const code = codeBlock.join('\n').replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      html += `<pre style="background: #050811; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 16px; margin: 16px 0; overflow-x: auto;">`;
-      html += `<code style="font-family: 'Fira Code', monospace; color: #38bdf8; font-size: 0.85rem;">${code}</code></pre>`;
-      codeBlock = [];
-      inCode = false;
-    }
-  };
-
-  lines.forEach(line => {
-    if (line.trim().startsWith('\`\`\`')) {
-      if (inCode) { flushCode(); } 
-      else { flushList(); flushTable(); inCode = true; }
-      return;
-    }
-    if (inCode) { codeBlock.push(line); return; }
-
-    if (line.startsWith('# ')) {
-      flushList(); flushTable();
-      html += `<h1 style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px; color: #fff; font-size: 1.6rem; font-family: 'Outfit';">${line.replace('# ', '')}</h1>`;
-      return;
-    }
-    if (line.startsWith('## ')) {
-      flushList(); flushTable();
-      html += `<h2 style="margin-top: 20px; margin-bottom: 12px; color: #fff; font-size: 1.25rem; font-family: 'Outfit';">${line.replace('## ', '')}</h2>`;
-      return;
-    }
-    if (line.startsWith('### ')) {
-      flushList(); flushTable();
-      html += `<h3 style="margin-top: 16px; margin-bottom: 8px; color: #fff; font-size: 1.05rem; font-family: 'Outfit';">${line.replace('### ', '')}</h3>`;
-      return;
-    }
-    if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-      flushTable();
-      inList = true;
-      listItems.push(processInlineBold(line.replace(/^[\\s]*[-*]\\s+/, '')));
-      return;
-    }
-    if (line.trim().startsWith('|')) {
-      flushList();
-      inTable = true;
-      const cols = line.split('|').map(c => c.trim()).filter((c, i, a) => i > 0 && i < a.length - 1);
-      if (line.includes('---')) return;
-      if (tableHeaders.length === 0) tableHeaders = cols;
-      else tableRows.push(cols);
-      return;
-    }
-    if (line.trim() === '') {
-      flushList(); flushTable();
-      return;
-    }
-    if (!inTable && !inList && !inCode) {
-      html += `<p style="margin-bottom: 12px; line-height: 1.6; font-size: 0.92rem;">${processInlineBold(line)}</p>`;
-    }
-  });
-
-  flushList();
-  flushTable();
-  flushCode();
-
-  return html;
-}
-
-// Initial render
-renderAgentPipeline();
-handleProviderChange();
+// Initialization
+handleRoute();
