@@ -93,17 +93,17 @@ class AgentRunner:
             print(f"Error in runner: {e}")
         
         # Sync final state to DB
-        from app.database import SessionLocal
-        from app import models
-        db = SessionLocal()
-        try:
-            build = db.query(models.BuildLog).filter(models.BuildLog.id == task_id).first()
-            if build:
-                build.status = task["status"]
-                build.logs = list(task["logs"])
-                build.files_json = dict(task["files"])
-                build.error = task["error"]
-                db.commit()
-        finally:
-            db.close()
+        from app.database import db
+        db.build_logs.update_one(
+            {"id": task_id},
+            {
+                "$set": {
+                    "status": task["status"],
+                    "logs": list(task["logs"]),
+                    "files_json": dict(task["files"]),
+                    "error": task["error"]
+                }
+            }
+        )
+
 

@@ -40,7 +40,14 @@ class BaseAgent:
 
         if not api_key:
             import os
-            api_key = os.environ.get("API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY") or ""
+            if provider == "gemini":
+                api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("API_KEY") or ""
+            elif provider == "openai":
+                api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("API_KEY") or ""
+            elif provider == "groq":
+                api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("API_KEY") or ""
+            else:
+                api_key = os.environ.get("API_KEY") or ""
 
         if provider == "simulated" or (not api_key and provider in ["openai", "gemini", "groq"]):
             self.log("Running in simulated mode (no API key or simulated provider selected).")

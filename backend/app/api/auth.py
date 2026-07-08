@@ -35,6 +35,7 @@ def register(user: UserCreate, db: Database = Depends(database.get_db)):
         new_user = {
             "id": user_id,
             "username": user.username,
+            "email": f"{user.username}@example.com",
             "password_hash": hashed_password
         }
         

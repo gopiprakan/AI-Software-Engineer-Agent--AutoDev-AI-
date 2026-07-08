@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Query, Depends
 from fastapi.responses import StreamingResponse
 from pymongo.database import Database
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from app.services.agent_runner import AgentRunner
 from app import database, security
 import uuid
@@ -25,10 +25,11 @@ class BuildLogResponse(BaseModel):
     id: str
     agent_config_id: str
     status: str
-    error: str = None
+    error: Optional[str] = None
     
 @router.post("/generate", response_model=BuildLogResponse)
 def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks, db: Database = Depends(database.get_db), current_user: dict = Depends(security.get_current_user)):
+    import os
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
     
@@ -47,7 +48,37 @@ def start_generation(req: GenerateRequest, background_tasks: BackgroundTasks, db
     }
     db.build_logs.insert_one(build_log)
     
-    background_tasks.add_task(runner.run_task, build_log_id, req.prompt, req.settings)
+    # Construct settings from active agent configuration and database keys vault
+    provider = agent.get("api_selections", {}).get("provider", "simulated")
+    
+    api_key_entry = db.api_keys.find_one({
+        "user_id": current_user["id"],
+        "category": provider
+    })
+    
+    decrypted_key = ""
+    if api_key_entry:
+        from app.encryption import decrypt_key
+        try:
+            decrypted_key = decrypt_key(api_key_entry["encrypted_key"])
+        except Exception:
+            pass
+            
+    default_models = {
+        "gemini": "gemini-1.5-flash",
+        "openai": "gpt-4o-mini",
+        "groq": "mixtral-8x7b-32768"
+    }
+    
+    run_settings = dict(req.settings) if req.settings else {}
+    if "provider" not in run_settings:
+        run_settings["provider"] = provider
+    if "apiKey" not in run_settings or not run_settings["apiKey"]:
+        run_settings["apiKey"] = decrypted_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("API_KEY") or ""
+    if "model" not in run_settings or not run_settings["model"]:
+        run_settings["model"] = default_models.get(provider, "gemini-1.5-flash")
+    
+    background_tasks.add_task(runner.run_task, build_log_id, req.prompt, run_settings)
     return build_log
 
 @router.get("/status/{task_id}")

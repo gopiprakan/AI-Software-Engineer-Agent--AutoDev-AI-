@@ -12,8 +12,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token", auto_error=False)
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -31,12 +31,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Database = Depends(database.get_db)):
+def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Database = Depends(database.get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token:
+        # Fall back to a default "guest" user if no token is provided
+        user = db.users.find_one({"username": "guest"})
+        if not user:
+            import uuid
+            user = {
+                "id": "guest-user-id-placeholder",
+                "username": "guest",
+                "email": f"guest-{str(uuid.uuid4())[:8]}@example.com",
+                "password_hash": get_password_hash("guestpassword")
+            }
+            db.users.insert_one(user)
+        return user
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -48,4 +62,5 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Database = Depends
     if user is None:
         raise credentials_exception
     return user
+
 

@@ -26,17 +26,21 @@ function showView(viewId) {
     appHeader.style.display = "flex";
   }
   
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    if (authToken) {
+      logoutBtn.innerText = "Logout";
+    } else {
+      logoutBtn.innerText = "Login / Register";
+    }
+  }
+  
   if (viewId === "dashboard") loadDashboard();
   if (viewId === "vault") loadVault();
 }
 
 function handleRoute() {
   const hash = window.location.hash.replace("#", "") || "dashboard";
-  
-  if (!authToken) {
-    showView("login");
-    return;
-  }
   
   if (hash.startsWith("ide/")) {
     const configId = hash.split("/")[1];
@@ -67,6 +71,10 @@ async function fetchAPI(endpoint, options = {}) {
 }
 
 function logout() {
+  if (!authToken) {
+    window.location.hash = "#login";
+    return;
+  }
   authToken = null;
   localStorage.removeItem("authToken");
   window.location.hash = "";
@@ -190,7 +198,7 @@ async function loadVault() {
     keys.forEach(k => {
       html += `<div class="build-card">
         <strong>${k.category.toUpperCase()} Key</strong>
-        <button class="btn btn-secondary" onclick="deleteKey(${k.id})">Delete</button>
+        <button class="btn btn-secondary" onclick="deleteKey('${k.id}')">Delete</button>
       </div>`;
     });
     keysList.innerHTML = html;
@@ -344,7 +352,7 @@ document.getElementById("deployBtn")?.addEventListener("click", async () => {
       body: {
         prompt: document.getElementById("promptInput").value,
         settings: {},
-        agent_config_id: parseInt(currentAgentConfigId)
+        agent_config_id: currentAgentConfigId
       }
     });
     const data = await res.json();
@@ -458,6 +466,31 @@ document.querySelectorAll(".workspace-tab").forEach(tab => {
     updateTabs();
     renderContent();
   });
+});
+
+document.getElementById("saveBtn")?.addEventListener("click", async () => {
+  const content = document.getElementById("codeTextarea").value;
+  const filepath = ideState.activeFile;
+  if (!filepath || !currentTaskId) return;
+  const saveBtnText = document.getElementById("saveBtnText");
+  const originalText = saveBtnText.innerText;
+  saveBtnText.innerText = "Saving...";
+  try {
+    const res = await fetchAPI(`/api/file/${currentTaskId}`, {
+      method: "PUT",
+      body: { path: filepath, content: content }
+    });
+    if (!res.ok) throw new Error("Failed to save");
+    ideState.activeFileContent = content;
+    ideState.originalFileContent = content;
+    saveBtnText.innerText = "Saved!";
+    setTimeout(() => {
+      saveBtnText.innerText = originalText;
+    }, 2000);
+  } catch (e) {
+    alert("Error saving file: " + e.message);
+    saveBtnText.innerText = originalText;
+  }
 });
 
 function updateTabs() {
