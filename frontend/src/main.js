@@ -113,7 +113,10 @@ document.getElementById("registerBtn")?.addEventListener("click", async () => {
       }),
       headers: { "Content-Type": "application/json" }
     });
-    if (!res.ok) throw new Error("Registration failed. Username may exist.");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || "Registration failed.");
+    }
     document.getElementById("loginBtn").click(); // Auto login
   } catch (e) {
     loginError.innerText = e.message;

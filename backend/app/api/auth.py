@@ -2,6 +2,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pymongo.database import Database
+from pymongo.errors import PyMongoError
 from pydantic import BaseModel
 import uuid
 
@@ -23,21 +24,28 @@ class UserResponse(BaseModel):
 
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Database = Depends(database.get_db)):
-    db_user = db.users.find_one({"username": user.username})
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    
-    hashed_password = security.get_password_hash(user.password)
-    user_id = str(uuid.uuid4())
-    
-    new_user = {
-        "id": user_id,
-        "username": user.username,
-        "password_hash": hashed_password
-    }
-    
-    db.users.insert_one(new_user)
-    return new_user
+    try:
+        db_user = db.users.find_one({"username": user.username})
+        if db_user:
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        hashed_password = security.get_password_hash(user.password)
+        user_id = str(uuid.uuid4())
+        
+        new_user = {
+            "id": user_id,
+            "username": user.username,
+            "password_hash": hashed_password
+        }
+        
+        db.users.insert_one(new_user)
+        return new_user
+    except PyMongoError as e:
+        print(f"Database error during registration: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error during registration: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 @router.post("/token", response_model=Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Database = Depends(database.get_db)):
